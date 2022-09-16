@@ -1,0 +1,509 @@
+object ANSI {
+    val Red = "\u001b[0;31m"
+    val Clear = "\u001b[0m"
+
+
+    // keyword c678dd
+    // Identifier = e5c07b
+    // whitespace = abb2bf
+    // = 56b6c2
+    // string #98c379
+
+    def foreground_color(hex: string): string =
+        foreground_color(Hex.from_string(hex, 0, 2), Hex.from_string(hex, 2, 2), Hex.from_string(hex, 4, 2))
+
+    def foreground_color(r: int, g: int, b: int): string =
+        "\u001b[38;2;" + string(r) + ";" + string(g) + ";" + string(b) + "m"
+
+    def background_color(hex: string): string =
+        background_color(Hex.from_string(hex, 0, 2), Hex.from_string(hex, 2, 2), Hex.from_string(hex, 4, 2))
+
+    def background_color(r: int, g: int, b: int): string =
+        "\u001b[48;2;" + string(r) + ";" + string(g) + ";" + string(b) + "m"
+}
+
+object ColorPalette {
+    val Literal1 = "d19a66" // number / bool
+    val Literal2 = "98c379" // string / char
+    val Punctuation = "56b6c2"
+
+    val Keyword = "c678dd" // if,else
+    val Identifier = "e06c75"
+
+    val Comments = "7f848e"
+    val Declarations = "e5c07b"
+    val Members = "61afef"
+
+    val Brackets = new string[] {
+        "d19a66",
+        "c678dd",
+        "56b6c2"
+    }
+}
+
+object AstPrinter {
+
+    def print_compilation_unit(compilationUnit: CompilationUnitSyntax): unit = {
+        print_namespace_declarations(compilationUnit.namespaceDeclaration)
+        print_using_declarations(compilationUnit.usings)
+        print_members(compilationUnit.members)
+        print_token(compilationUnit.endToken)
+    }
+
+    def print_using_declarations(nodes: Array<UsingDirectiveSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_using_declaration(nodes[x])
+        }
+    }
+
+    def print_members(nodes: Array<MemberSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_member(nodes[x])
+        }
+    }
+
+    def print_member(member: MemberSyntax): unit = {
+        val kind = member.kind
+        if (kind == SyntaxKind.ObjectDeclaration) {
+            print_object_declaration(member.objects[0])
+        } else if (kind == SyntaxKind.ClassDeclaration) {
+            print_class_declaration(member.classes[0])
+        } else if (kind == SyntaxKind.FunctionDeclaration) {
+            print_function_declaration(member.functions[0])
+        } else if (kind == SyntaxKind.GlobalStatement) {
+            print_global_statement(member.statements[0])
+        } else panic("print_member")
+    }
+
+
+    def print_object_declaration(node: ObjectDeclarationSyntax): unit = {
+        print_token(node.objectKeyword)
+        print_token(node.identifier, ColorPalette.Declarations)
+        print_template(node.template)
+    }
+
+    def print_optional_template(node: Array<TemplateSyntax>): unit = 
+        if (node.Length > 0) print_template(node[0]) else ()
+
+    def print_template(node: TemplateSyntax): unit = {
+        print_token(node.openBrace)
+        print_members(node.members)
+        print_token(node.closeBrace)
+    }
+
+    def print_class_declaration(node: ClassDeclarationSyntax): unit ={
+        print_token(node.classKeyword)
+        print_token(node.identifier, ColorPalette.Declarations)
+        print_token(node.openParenToken)
+        print_parameters(node.parameters)
+        print_token(node.closeParenToken)
+        print_optional_template(node.template)
+    }
+
+    def print_function_declaration(node: FunctionDeclarationSyntax): unit = {
+        print_token(node.defKeyword)
+        print_token(node.identifier, ColorPalette.Members)
+        print_token(node.openParenToken)
+        print_parameters(node.parameters)
+        print_token(node.closeParenToken)
+        print_optional_type_annotation(node.typeAnnotation)
+        print_optional_function_body(node.body)
+    }
+
+    def print_global_statement(node: GlobalStatementSyntax): unit =
+        print_statment(node.statement)
+
+    def print_using_declaration(node: UsingDirectiveSyntax): unit = {
+        print_token(node.usingKeyword)
+        print_name(node.name)
+    }
+
+    def print_parameter(node: ParameterSyntax): unit = {
+        print_token(node.identifier)
+        print_type_annotation(node.typeAnnotation)
+        print_tokens(node.commaToken)
+    }
+
+    def print_optional_type_annotation(node: Array<TypeAnnotationSyntax>): unit = 
+        if (node.Length > 0) print_type_annotation(node[0]) else ()
+
+    def print_type_annotation(node: TypeAnnotationSyntax): unit = {
+        print_token(node.colonToken)
+        print_name(node.type)
+    }
+
+    def print_optional_function_body(node: Array<FunctionBodySyntax>): unit = 
+        if (node.Length > 0) print_function_body(node[0]) else ()
+
+    def print_function_body(node: FunctionBodySyntax): unit = {
+        print_token(node.equalToken)
+        print_expression(node.expression)
+    }
+
+    def print_expression(node: ExpressionSyntax): unit = {
+        val kind = node.kind
+        if (kind == SyntaxKind.ArrayCreationExpression) {
+            print_array_creation_expression(node.arrayCreationExpression[0])
+        } else if (kind == SyntaxKind.AssignmentExpression) {
+            print_assignment_expression(node.assignmentExpression[0])
+        } else if (kind == SyntaxKind.BinaryExpression) {
+            print_binary_expression(node.binaryExpression[0])
+        } else if (kind == SyntaxKind.BlockExpression) {
+            print_block_expression(node.blockExpression[0])
+        } else if (kind == SyntaxKind.CallExpression) {
+            print_call_expression(node.callExpression[0])
+        } else if (kind == SyntaxKind.ForExpression) {
+            print_for_expression(node.forExpression[0])
+        } else if (kind == SyntaxKind.GroupExpression) {
+            print_group_expression(node.groupExpression[0])
+        } else if (kind == SyntaxKind.IdentifierName) {
+            print_identifier_name(node.identifierName[0], ColorPalette.Identifier)
+        } else if (kind == SyntaxKind.IfExpression) {
+            print_if_expression(node.ifExpression[0])
+        } else if (kind == SyntaxKind.IndexExpression) {
+            print_index_expression(node.indexExpression[0])
+        } else if (kind == SyntaxKind.LiteralExpression) {
+            print_literal_expression(node.literalExpression[0])
+        } else if (kind == SyntaxKind.MemberAccessExpression) {
+            print_member_access_expression(node.memberAccessExpression[0])
+        } else if (kind == SyntaxKind.NewExpression) {
+            print_new_expression(node.newExpression[0])
+        } else if (kind == SyntaxKind.UnaryExpression) {
+            print_unary_expression(node.unaryExpression[0])
+        } else if (kind == SyntaxKind.UnitExpression) {
+            print_unit_expression(node.unitExpression[0])
+        } else if (kind == SyntaxKind.WhileExpression) {
+            print_while_expression(node.whileExpression[0])
+        } else ()
+    }
+
+    def print_array_creation_expression(node: ArrayCreationExpressionSyntax): unit = {
+        print_token(node.newKeyword)
+        print_name(node.name)
+        print_token(node.openBracket)
+        print_expressions(node.arrayRank)
+        print_token(node.closeBracket)
+        print_array_initializer_expressions(node.initializer)
+    }
+
+    def print_array_initializer_expressions(nodes: Array<ArrayInitializerExpressionSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_array_initializer_expression(nodes[x])
+        }
+    }
+    def print_array_initializer_expression(node: ArrayInitializerExpressionSyntax): unit = {
+        print_token(node.openBrace)
+        print_expression_list(node.expressions)
+        print_token(node.closeBrace)
+    }
+
+    def print_assignment_expression(node: AssignmentExpressionSyntax): unit = {
+        print_expression(node.left)
+        print_token(node.equals)
+        print_expression(node.right)
+    }
+    def print_binary_expression(node: BinaryExpressionSyntax): unit = {
+        print_expression(node.left)
+        print_token(node.operator)
+        print_expression(node.right)
+    }
+    def print_block_expression(node: BlockExpressionSyntax): unit = {
+        print_token(node.openBrace)
+        print_statments(node.statements)
+        print_expressions(node.expression)
+        print_token(node.closeBrace)
+    }
+
+    def print_call_expression(node: CallExpressionSyntax): unit = {
+        print_expression(node.name)
+        print_token(node.openParen)
+        print_expression_list(node.arguments)
+        print_token(node.closeParen)
+    }
+
+    def print_for_expression(node: ForExpressionSyntax): unit = {
+        print_token(node.forKeyword)
+        print_token(node.openParen)
+        print_token(node.identifier)
+        print_token(node.arrow)
+        print_expression(node.fromExpr)
+        print_token(node.toKeyword)
+        print_expression(node.toExpr)
+        print_token(node.closeParen)
+        print_expression(node.body)
+    }
+    def print_group_expression(node: GroupExpressionSyntax): unit = {
+        print_token(node.openParen)
+        print_expression(node.expression)
+        print_token(node.closeParen)
+    }
+    def print_if_expression(node: IfExpressionSyntax): unit = {
+        print_token(node.ifKeyword)
+        print_token(node.openParen)
+        print_expression(node.condition)
+        print_token(node.closeParen)
+        print_expression(node.then)
+        print_token(node.elseKeyword)
+        print_expression(node.elseExpr)
+    }
+
+    def print_index_expression(node: IndexExpressionSyntax): unit = {
+        print_expression(node.left)
+        print_token(node.openBracket)
+        print_expression(node.index)
+        print_token(node.closeBracket)
+    }
+    def print_literal_expression(node: LiteralExpressionSyntax): unit = {
+        print_token(node.token)
+    }
+    def print_member_access_expression(node: MemberAccessExpressionSyntax): unit = {
+        print_expression(node.left)
+        print_token(node.dotToken)
+        print_expression(node.right)
+    }
+    def print_new_expression(node: NewExpressionSyntax): unit = {
+        print_token(node.newKeyword)
+        print_name(node.identifier)
+        print_token(node.openParen)
+        print_expression_list(node.arguments)
+        print_token(node.closeParen)
+    }
+    def print_unary_expression(node: UnaryExpressionSyntax): unit = {
+        print_token(node.operator)
+        print_expression(node.expression)
+    }
+    def print_unit_expression(node: UnitExpressionSyntax): unit = {
+        print_token(node.openParen)
+        print_token(node.closeParen)
+    }
+    def print_while_expression(node: WhileExpressionSyntax): unit = {
+        print_token(node.whileKeyword)
+        print_token(node.openParen)
+        print_expression(node.left)
+        print_token(node.closeParen)
+        print_expression(node.body)
+    }
+
+    def print_expression_list(node: ExpressionListSyntax): unit = {
+        print_expression_items(node.expressions)
+    }
+
+    def print_expression_items(nodes: Array<ExpressionItemSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_expression_item(nodes[x])
+        }
+    }
+
+    def print_expression_item(node: ExpressionItemSyntax): unit = {
+        print_expression(node.expression)
+        print_tokens(node.separatorToken)
+    }
+
+    def print_statment(node: StatementSyntax): unit = {
+        val kind = node.kind
+        if (kind == SyntaxKind.VariableDeclarationStatement) {
+            print_variable_declaration_statement(node.variableDeclarationStatement[0])
+        } else if (kind == SyntaxKind.BreakStatement) {
+            print_break_statement(node.breakStatement[0])
+        } else if (kind == SyntaxKind.ContinueStatement) {
+            print_continue_statement(node.continueStatement[0])
+        } else if (kind == SyntaxKind.ExpressionStatement) {
+            print_expression_statement(node.expressionStatement[0])
+        } else ()
+    }
+
+    def print_variable_declaration_statement(node: VariableDeclarationStatementSyntax): unit = {
+        print_token(node.valOrVarKeyword)
+        print_token(node.identifier)
+        print_optional_type_annotation(node.typeAnnotation)
+        print_token(node.equalToken)
+        print_expression(node.expression)
+    }
+    def print_break_statement(node: BreakStatementSyntax): unit = print_token(node.breakKeyword)
+    def print_continue_statement(node: ContinueStatementSyntax): unit = print_token(node.continueKeyword)
+    def print_expression_statement(node: ExpressionStatementSyntax): unit = {
+        print_expression(node.expression)
+    }
+
+    def print_statments(nodes: Array<StatementSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_statment(nodes[x])
+        }
+    }
+
+    def print_expressions(nodes: Array<ExpressionSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_expression(nodes[x])
+        }
+    }
+
+    def print_parameters(nodes: Array<ParameterSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_parameter(nodes[x])
+        }
+    }
+
+    def print_namespace_declarations(nodes: Array<NamespaceDeclarationSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_namespace_declaration(nodes[x])
+        }
+    }
+
+    def print_namespace_declaration(decl: NamespaceDeclarationSyntax): unit = {
+        print_token(decl.namespaceKeyword)
+        print_name(decl.name)
+    }
+
+    def print_name(name: NameSyntax): unit = {
+        val kind = name.kind
+        if (kind == SyntaxKind.QualifiedName) {
+            print_qualified_name(name.qualifiedName[0])
+        } else if (kind == SyntaxKind.SimpleName) {
+            print_simple_name(name.simpleName[0])
+        } else ()
+    }
+
+    def print_qualified_name(node: QualifiedNameSyntax): unit = {
+        print_name(node.left)
+        print_token(node.dotToken)
+        print_simple_name(node.right)
+    }
+
+    def print_generic_name(node: GenericNameSyntax): unit = {
+        print_token(node.identifier, ColorPalette.Declarations)
+        print_type_argument_list(node.typeArgumentlist)
+    }
+
+    def print_simple_name(node: SimpleNameSyntax): unit = {
+        val kind = node.kind
+        if (kind == SyntaxKind.GenericName) {
+            print_generic_name(node.genericName[0])
+        } else if (kind == SyntaxKind.IdentifierName) {
+            print_identifier_name(node.identifierName[0], ColorPalette.Declarations)
+        } else ()
+    }
+
+    def print_type_argument_lists(nodes: Array<TypeArgumentListSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_type_argument_list(nodes[x])
+        }
+    }
+
+    def print_type_argument_list(node: TypeArgumentListSyntax): unit = {
+        print_token(node.lessThanToken)
+        print_type_argument_list_items(node.arguments)
+        print_token(node.greaterThanToken)
+    }
+
+    def print_type_argument_list_items(nodes: Array<TypeArgumentItemSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_type_argument_list_item(nodes[x])
+        }
+    }
+
+    def print_type_argument_list_item(node: TypeArgumentItemSyntax): unit = {
+        print_name(node.name)
+        print_tokens(node.separator)
+    }
+
+    def print_identifier_names(nodes: Array<IdentifierNameSyntax>, color: string): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_identifier_name(nodes[x], color)
+        }
+    }
+
+    def print_identifier_name(node: IdentifierNameSyntax, color: string): unit = {
+        print_token(node.identifier, color)
+    }
+
+    def print_trivia_array(nodes: Array<SyntaxTrivia>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_trivia(nodes[x])
+        }
+    }
+    def print_trivia(node: SyntaxTrivia): unit = {
+        print_kind_color(node.kind)
+        print(node.text)
+        print_clear()
+    }
+    def print_tokens(nodes: Array<SyntaxToken>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_token(nodes[x])
+        }
+    }
+
+    def print_token(token: SyntaxToken): unit = {
+        print_trivia_array(token.leading)
+        print_kind_color(token.kind)
+        print(token.text)
+        print_clear()
+        print_trivia_array(token.trailing)
+    }
+
+    def print_token(token: SyntaxToken, color: string): unit = {
+        print_trivia_array(token.leading)
+        print_color(color)
+        print(token.text)
+        print_clear()
+        print_trivia_array(token.trailing)
+    }
+
+    def print_kind_color(kind: int): unit = {
+        if (kind == SyntaxKind.NumberToken || kind == SyntaxKind.TrueKeyword || kind == SyntaxKind.FalseKeyword) {
+            print_color(ColorPalette.Literal1)
+        } else if (SyntaxFacts.is_keyword_kind(kind)) {
+            print_color(ColorPalette.Keyword)
+        } else if (kind == SyntaxKind.StringToken || kind == SyntaxKind.CharToken) {
+            print_color(ColorPalette.Literal2)
+        } else if (kind == SyntaxKind.DashToken) {
+            print_color(ColorPalette.Punctuation)
+        } else if (kind == SyntaxKind.LineCommentTrivia || kind == SyntaxKind.BlockCommentTrivia) {
+            print_color(ColorPalette.Comments)
+        } else if (kind == SyntaxKind.IdentifierToken) {
+            print_color(ColorPalette.Identifier)
+        } else if (kind == SyntaxKind.OpenBraceToken || kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken ||
+                   kind == SyntaxKind.CloseBraceToken || kind == SyntaxKind.CloseParenToken || kind == SyntaxKind.CloseBracketToken) {
+            print_bracket_color(kind)
+        } else {
+
+        }
+    }
+
+    var bracket_depth = 0
+
+    def update_bracket_depth(value: int): unit = {
+        bracket_depth = value
+
+        while (bracket_depth >= 3) {
+            bracket_depth = bracket_depth - 3
+        }
+        while (bracket_depth < 0) {
+            bracket_depth = bracket_depth + 3
+        }
+    }
+
+    def print_bracket_color(kind: int): unit = {
+        if (kind == SyntaxKind.OpenBraceToken || kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken) {
+            print_color(ColorPalette.Brackets[bracket_depth])
+            update_bracket_depth(bracket_depth + 1)
+        } else {
+            update_bracket_depth(bracket_depth - 1)
+            print_color(ColorPalette.Brackets[bracket_depth])
+        }
+    }
+
+    def print_token_info(token: SyntaxToken): unit =
+        println(token.location.to_string() + "[" + SyntaxFacts.get_kind_name(token.kind) + "]: " + "\"" + token.text + "\"")
+
+    def pad_right(value: string, len: int): string = {
+        var padded = value
+        while (padded.Length < len) {
+            padded = padded + " "
+        }
+
+        padded
+    }
+
+    def print_color(value: string): unit = print(ANSI.foreground_color(value))
+    def print_clear(): unit = print(ANSI.Clear)
+}

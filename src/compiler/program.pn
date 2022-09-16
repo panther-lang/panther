@@ -17,8 +17,20 @@ object Program {
                 val compilation = new Parser(file, diagnosticBag).parse_compilation_unit()
 
                 val diagnostics = diagnosticBag.diagnostics()
-                for (i <- 0 to diagnostics.Length) {
-                    printDiagnostic(diagnostics[i])
+                val len = diagnostics.Length
+                if (len > 0) {
+                    for (i <- 0 to diagnostics.Length) {
+                        printDiagnostic(diagnostics[i])
+                    }
+                } else {
+                    println("parsed " + args[x] + " successfully.")
+                    if (false) {
+                        AstPrinter.print_compilation_unit(compilation)
+                        println()
+                        println()
+                    } else {
+
+                    }
                 }
             }
 
@@ -63,9 +75,9 @@ object Program {
             val suffix = source_file.to_string(suffix_span)
 
             print(prefix)
-            // TODO: support colors
+            print(ANSI.foreground_color("e06c75"))
             print(error)
-            // ....
+            print(ANSI.Clear)
             println(suffix)
 
             for(c <- 0 to (prefix_span.length)) {

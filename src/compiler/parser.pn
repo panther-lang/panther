@@ -190,7 +190,8 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
             val right = parse_simple_name()
             val qn = new QualifiedNameSyntax(left, dot, right)
             parse_qualified_name(
-                new NameSyntax(0,
+                new NameSyntax(
+                    SyntaxKind.QualifiedName,
                     new QualifiedNameSyntax[] { qn },
                     new SimpleNameSyntax[0]
                 )
@@ -202,7 +203,7 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
         debug_print("parse_name")
         val simple_name = parse_simple_name()
         val name = new NameSyntax(
-            simple_name.kind,
+            SyntaxKind.SimpleName,
             new QualifiedNameSyntax[0],
             new SimpleNameSyntax[] { simple_name }
         )
@@ -1090,7 +1091,7 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
 
     def todo(note: string): unit = {
         val curr = current()
-        AstPrinter.print_token(curr)
+        AstPrinter.print_token_info(curr)
         panic(note + ": " + SyntaxFacts.get_kind_name(curr.kind))
     }
 

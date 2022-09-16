@@ -1,4 +1,4 @@
-class SyntaxTrivia(kind: int, start: int, value: string) {
+class SyntaxTrivia(kind: int, start: int, text: string) {
     def is_statement_terminator(): bool = kind == SyntaxKind.EndOfLineTrivia
 }
 
@@ -159,6 +159,7 @@ object SyntaxKind {
     val QualifiedName  = 80
     val GenericName    = 81
     val IdentifierName = 82
+    val SimpleName = 83
 
     // Statements
     val BreakStatement               = 90
@@ -289,6 +290,9 @@ object SyntaxFacts {
         else if (kind == SyntaxKind.NamespaceDeclaration) "NamespaceDeclaration"
         else "<invalid>"
     }
+
+    def is_keyword_kind(kind: int): bool =
+        kind >= 11 && kind <= 29
 
     def get_keyword_kind(span: string): int = {
         if (span == "break") SyntaxKind.BreakKeyword

@@ -30,11 +30,13 @@
       "args": [
         "./bin/panther.dll",
         "src/compiler/math.pn",
+        "src/compiler/hex.pn",
         "src/compiler/text.pn",
         "src/compiler/syntax.pn",
         "src/compiler/scanner.pn",
         "src/compiler/ast.pn",
         "src/compiler/parser.pn",
+        "src/compiler/printer.pn",
         "src/compiler/program.pn "
       ],
       "problemMatcher": "$msvc",

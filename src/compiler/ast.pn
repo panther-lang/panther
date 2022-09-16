@@ -20,7 +20,10 @@ class ArrayCreationExpressionSyntax(
 )
 
 class IdentifierNameSyntax(identifier: SyntaxToken)
-class GenericNameSyntax(identifier: SyntaxToken, typeArgumentlist: TypeArgumentListSyntax)
+class GenericNameSyntax(
+    identifier: SyntaxToken,
+    typeArgumentlist: TypeArgumentListSyntax
+)
 class QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
 
 class SimpleNameSyntax(
@@ -48,7 +51,12 @@ class BlockExpressionSyntax(
     expression: Array<ExpressionSyntax>, /* 0 to 1 */
     closeBrace: SyntaxToken
 )
-class CallExpressionSyntax(name: ExpressionSyntax, openParen: SyntaxToken, arguments: ExpressionListSyntax, closeParen: SyntaxToken)
+class CallExpressionSyntax(
+    name: ExpressionSyntax,
+    openParen: SyntaxToken,
+    arguments: ExpressionListSyntax,
+    closeParen: SyntaxToken
+)
 class ForExpressionSyntax(
     forKeyword: SyntaxToken,
     openParen: SyntaxToken,
@@ -138,7 +146,7 @@ class TypeArgumentListSyntax(
     greaterThanToken: SyntaxToken
 )
 
-class UsingDirectiveSyntax(usingKeyword: SyntaxToken, names: NameSyntax)
+class UsingDirectiveSyntax(usingKeyword: SyntaxToken, name: NameSyntax)
 
 class TemplateSyntax(
     openBrace: SyntaxToken,
@@ -212,54 +220,4 @@ class NamespaceDeclarationSyntax(namespaceKeyword: SyntaxToken, name: NameSyntax
 */
 class CompilationUnitSyntax(namespaceDeclaration: Array<NamespaceDeclarationSyntax>, usings: Array<UsingDirectiveSyntax>, members: Array<MemberSyntax>, endToken: SyntaxToken) {
     val kind = SyntaxKind.CompilationUnit
-}
-
-object AstPrinter {
-    def print_compilation_unit(compilationUnit: CompilationUnitSyntax): unit = {
-        print_namespace_declarations(compilationUnit.namespaceDeclaration)
-    }
-
-    def print_namespace_declarations(nodes: Array<NamespaceDeclarationSyntax>): unit = {
-        for (x <- 0 to nodes.Length) {
-            print_namespace_declaration(nodes[x])
-        }
-    }
-
-    def print_namespace_declaration(decl: NamespaceDeclarationSyntax): unit = {
-        print_token(decl.namespaceKeyword)
-        print_name(decl.name)
-    }
-
-    def print_name(name: NameSyntax): unit = {
-        panic("print_name")
-    }
-
-    def print_type_argument_lists(nodes: Array<TypeArgumentListSyntax>): unit = {
-        for (x <- 0 to nodes.Length) {
-            print_type_argument_list(nodes[x])
-        }
-    }
-
-    def print_type_argument_list(node: TypeArgumentListSyntax): unit = panic()
-
-    def print_identifier_names(nodes: Array<IdentifierNameSyntax>): unit = {
-        for (x <- 0 to nodes.Length) {
-            print_identifier_name(nodes[x])
-        }
-    }
-
-    def print_identifier_name(node: IdentifierNameSyntax): unit = panic()
-
-    def print_trivia(node: SyntaxTrivia): unit = ()
-    def print_token(token: SyntaxToken): unit =
-        println(token.location.to_string() + "[" + SyntaxFacts.get_kind_name(token.kind) + "]: " + "\"" + token.text + "\"")
-
-    def pad_right(value: string, len: int): string = {
-        var padded = value
-        while (padded.Length < len) {
-            padded = padded + " "
-        }
-
-        padded
-    }
 }
