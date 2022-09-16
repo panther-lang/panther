@@ -1,0 +1,65 @@
+
+
+/**
+    separatorToken may be either a `.` or `,` in the case
+*/
+class IdentifierNameSyntax(identifier: SyntaxToken, separatorToken: Array<SyntaxToken>)
+
+class UsingDirectiveSyntax(usingKeyword: SyntaxToken, names: Array<IdentifierNameSyntax>)
+
+class TypeArgumentList(lessThanToken: SyntaxToken, arguments: Array<IdentifierNameSyntax>, greaterThanToken: SyntaxToken)
+
+/**
+  * names [1..n]
+  * typeArgumentList [0..1]
+  */
+class NamespaceDeclarationSyntax(namespaceKeyword: SyntaxToken, names: Array<IdentifierNameSyntax>, typeArgumentList: Array<TypeArgumentList>) {
+    def is_empty() = names.Length == 0 && typeArgumentList.Length == 0
+}
+
+class MemberSyntax()
+
+/**
+    namespaceDeclaration [0..1]
+    usings [0..n]
+*/
+class CompilationUnitSyntax(namespaceDeclaration: Array<NamespaceDeclarationSyntax>, usings: Array<UsingDirectiveSyntax>, members: Array<MemberSyntax>, endToken: SyntaxToken) {
+    val kind = SyntaxKind.CompilationUnit
+}
+
+object AstPrinter {
+    def print_compilation_unit(compilationUnit: CompilationUnitSyntax): unit = {
+        print_namespace_declarations(compilationUnit.namespaceDeclaration)
+    }
+
+    def print_namespace_declarations(nodes: Array<NamespaceDeclarationSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_namespace_declaration(nodes[x])
+        }
+    }
+
+    def print_namespace_declaration(decl: NamespaceDeclarationSyntax): unit = {
+        print_token(decl.namespaceKeyword)
+        print_identifier_names(decl.names)
+        print_type_argument_lists(decl.typeArgumentList)
+    }
+
+    def print_type_argument_lists(nodes: Array<TypeArgumentList>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_type_argument_list(nodes[x])
+        }
+    }
+
+    def print_type_argument_list(node: TypeArgumentList): unit = panic()
+
+    def print_identifier_names(nodes: Array<IdentifierNameSyntax>): unit = {
+        for (x <- 0 to nodes.Length) {
+            print_identifier_name(nodes[x])
+        }
+    }
+
+    def print_identifier_name(node: IdentifierNameSyntax): unit = panic()
+
+    def print_trivia(node: SyntaxTrivia): unit = ()
+    def print_token(node: SyntaxToken): unit = ()
+}

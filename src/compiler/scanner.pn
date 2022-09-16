@@ -1,0 +1,415 @@
+using System
+using System.IO
+
+class Diagnostic(span: TextSpan, message: string)
+class DiagnosticBag() {
+    var _size = 0
+    var _items: Array<Diagnostic> = new Diagnostic[0]
+
+    def report(span: TextSpan, message: string): unit = add(new Diagnostic(span, message))
+
+    def report_bad_character(span: TextSpan, value: char) = report(span, "Invalid character in input: " + string(value))
+    def report_empty_char_literal(span: TextSpan) = report(span, "Empty character literal")
+    def report_unterminated_block_comment(span: TextSpan) = report(span, "Unterminated block comment")
+    def report_unterminated_char(span: TextSpan) = report(span, "Unterminated character literal")
+    def report_unterminated_string(span: TextSpan) = report(span, "Unterminated string literal")
+    def report_unexpected_token(span: TextSpan, currentKind: int, expectedKind: int) =
+        report(span, "Unexpected token " + SyntaxFacts.get_kind_name(currentKind) + ", expected " + SyntaxFacts.get_kind_name(expectedKind))
+
+
+    def ensure_capacity(count: int): unit = {
+        if (_size + count >= _items.Length) {
+            var newItems = new Diagnostic[(_size + count) * 2]
+            for (i <- 0 to _size) {
+                newItems[i] = _items[i]
+            }
+            _items = newItems
+        } else {
+            ()
+        }
+    }
+
+    def add(diagnostic: Diagnostic): unit = {
+        ensure_capacity(1)
+        _items[_size] = diagnostic
+        _size = _size + 1
+    }
+
+    def diagnostics(): Array<Diagnostic> = {
+        var newItems = new Diagnostic[_size]
+        for (i <- 0 to _size) {
+            newItems[i] = _items[i]
+        }
+        newItems
+    }
+}
+
+
+class Result(is_success: bool, value: any)
+
+object MakeResult {
+    val fail = new Result(false, 0)
+
+    def success(value: any) = new Result(true, value)
+}
+
+class Scanner(text: string, diagnostics: DiagnosticBag) {
+    var _position: int = 0
+    var debug = false
+
+    def peek(position: int): char = if (position >= text.Length) { '\0' } else { text[position] }
+
+    def current(): char = peek(_position)
+    def lookahead(): char = peek(_position + 1)
+
+    def next(): unit = {
+        if (debug) {
+            println("accepting: " + string(current()))
+        } else ()
+        
+        _position = _position + 1
+    }
+
+    def is_letter(c: char): bool = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+    def is_digit(c: char): bool = (c >= '0' && c <= '9')
+    def is_ident_start(c: char): bool = is_letter(c) || c == '_'
+    def is_ident(c: char): bool = is_letter(c) || is_digit(c) || c == '_'
+    def is_eol(c: char): bool = c == '\n' || c == '\r'
+    def is_whitespace(c: char): bool = 
+        c == '\u0009' || c == '\u000A' || c == '\u000B' || c == '\u000C' || c == '\u000D' || c == '\u0020' ||
+        c == '\u0020' || c == '\u0085' || c == '\u00A0' || c == '\u1680' || c == '\u2000' || c == '\u2001' ||
+        c == '\u2002' || c == '\u2002' || c == '\u2002' || c == '\u2003' || c == '\u2003' || c == '\u2003' ||
+        c == '\u2004' || c == '\u2005' || c == '\u2006' || c == '\u2007' || c == '\u2008' || c == '\u2008' ||
+        c == '\u2009' || c == '\u2009' || c == '\u2009' || c == '\u200A' || c == '\u2028' || c == '\u2029' ||
+        c == '\u202F' || c == '\u205F' || c == '\u3000'
+
+    def is_non_nl_whitespace(c: char): bool = !is_eol(c) && is_whitespace(c)
+
+    def is_start_token(c: char): bool =
+        c == '-' || c == ',' || c == ':' || c == '!' || c == '.' || c == '(' || c == ')' || c == '[' || c == ']' || 
+        c == '{' || c == '}' || c == '*' || c == '/' || c == '\'' || c == '\"' || c == '&' || c == '+' || c == '<' || 
+        c == '=' || c == '>' || c == '|'
+
+    def is_invalid_token_trivia(c: char): bool = c != '\0' && !is_start_token(c) && !is_digit(c) && !is_ident_start(c)
+
+    def scan() : SyntaxToken = {
+        val leading = scan_trivia(true)
+        val token = scan_simple_token()
+        val trailing = scan_trivia(true)
+
+        new SyntaxToken(token.kind, token.start, token.value, leading, trailing)
+    }
+
+    def scan_simple_token(): SimpleToken = {
+        val curr = current()
+        val look = lookahead()
+        if (curr == '\0') {
+            new SimpleToken(SyntaxKind.EndOfInputToken, _position, "")
+        } else if (curr == '.') {
+            scan_simple_one(SyntaxKind.DotToken)
+        } else if (curr == '(') {
+            scan_simple_one(SyntaxKind.OpenParenToken)
+        } else if (curr == ')') {
+            scan_simple_one(SyntaxKind.CloseParenToken)
+        } else if (curr == ':') {
+            scan_simple_one(SyntaxKind.ColonToken)
+        } else if (curr == ',') {
+            scan_simple_one(SyntaxKind.CommaToken)
+        } else if (curr == '<' && look == '=') {
+            scan_simple_two(SyntaxKind.LessThanEqualsToken)
+        } else if (curr == '<' && look == '-') {
+            scan_simple_two(SyntaxKind.LessThanDashToken)
+        } else if (curr == '<') {
+            scan_simple_one(SyntaxKind.LessThanToken)
+        } else if (curr == '>' && look == '=') {
+            scan_simple_two(SyntaxKind.GreaterThanEqualsToken)
+        } else if (curr == '>') {
+            scan_simple_one(SyntaxKind.GreaterThanToken)
+        } else if (curr == '=' && look == '=') {
+            scan_simple_two(SyntaxKind.EqualsEqualsToken)
+        } else if (curr == '=') {
+            scan_simple_one(SyntaxKind.EqualsToken)
+        } else if (curr == '!' && look == '=') {
+            scan_simple_two(SyntaxKind.BangEqualsToken)
+        } else if (curr == '!') {
+            scan_simple_one(SyntaxKind.BangToken)
+        } else if (curr == '{') {
+            scan_simple_one(SyntaxKind.OpenBraceToken)
+        } else if (curr == '}') {
+            scan_simple_one(SyntaxKind.CloseBraceToken)
+        } else if (curr == '[') {
+            scan_simple_one(SyntaxKind.OpenBracketToken)
+        } else if (curr == ']') {
+            scan_simple_one(SyntaxKind.CloseBracketToken)
+        } else if (curr == '+') {
+            scan_simple_one(SyntaxKind.PlusToken)
+        } else if (curr == '-') {
+            scan_simple_one(SyntaxKind.DashToken)
+        } else if (curr == '/') {
+            scan_simple_one(SyntaxKind.SlashToken)
+        } else if (curr == '*') {
+            scan_simple_one(SyntaxKind.StarToken)
+        } else if (curr == '&' && look == '&') {
+            scan_simple_two(SyntaxKind.AmpersandAmpersandToken)
+        } else if (curr == '&') {
+            scan_simple_one(SyntaxKind.AmpersandToken)
+        } else if (curr == '|' && look == '|') {
+            scan_simple_two(SyntaxKind.PipePipeToken)
+        } else if (curr == '|') {
+            scan_simple_one(SyntaxKind.PipeToken)
+        } else if (curr == '\"') {
+            scan_string()
+        } else if (curr == '\'') {
+            scan_char()
+        } else if (is_digit(curr)) {
+            scan_number()
+        } else if (is_ident_start(curr)) {
+            scan_ident()
+        } else {
+            scan_invalid_token()
+        }
+    }
+
+    def scan_invalid_token(): SimpleToken = {
+        diagnostics.report_bad_character(new TextSpan(_position, 0), current())
+        new SimpleToken(SyntaxKind.InvalidTokenTrivia, _position, "")
+    }
+
+    def scan_escape_sequence(): Result = {
+        val start = _position
+        next() // accept '\'
+        val curr = current()
+        if (curr == '\'') {
+            next()
+            MakeResult.success("\'")
+        } else if (curr == '\r') {
+            next()
+            MakeResult.success("\r")
+        } else if (curr == '\n') {
+            next()
+            MakeResult.success("\n")
+        } else if (curr == '\t') {
+            next()
+            MakeResult.success("\t")
+        } else if (curr == '\\') {
+            next()
+            MakeResult.success("\\")
+        } else if (curr == '"') {
+            next()
+            MakeResult.success("\"")
+        } else if (curr == '0') {
+            next()
+            MakeResult.success("\0")
+        // TODO: unicode escape characters
+        // } else if (curr == 'u') {
+        // } else if (curr == 'U') {
+        } else {
+            MakeResult.fail
+        }
+    }
+
+    def scan_string(): SimpleToken = {
+        val start = _position
+        next() // opening "
+        var value = ""
+
+        while (true) {
+            val curr = current()
+            if (curr == '"') {
+                next() // end "
+                break
+            } else if (curr == '\\') {
+                val escape = scan_escape_sequence()
+                if (escape.is_success) {
+                    value = value + string(escape.value)
+                } else {
+                }
+                continue
+            } else if (curr == '\r' || curr == '\n' || curr == '\0') {
+                diagnostics.report_unterminated_string(new TextSpan(start, 1))
+                break
+            } else {
+                value = value + string(curr)
+                next()
+                continue
+            }
+
+            break
+        }
+
+        val span = text.Substring(start, _position - start)
+        // TODO: save value
+        new SimpleToken(SyntaxKind.StringToken, start, span)
+    }
+
+    def scan_char(): SimpleToken = {
+        val start = _position
+        next() // open '
+        
+        val curr = current()
+        val value = if (curr == '\r' || curr == '\n' || curr == '\0') {
+            diagnostics.report_unterminated_char(new TextSpan(start, 1))
+            MakeResult.fail
+        } else if (curr == '\'') {
+            diagnostics.report_empty_char_literal(new TextSpan(start, 2))
+            MakeResult.fail
+        } else if (curr == '\\') {
+            // TODO: escape sequence
+            val result = scan_escape_sequence()
+            if (result.is_success) MakeResult.success(string(result.value)[0])
+            else result
+        } else {
+            next() // character
+            MakeResult.success(curr)
+        }
+
+        if (current() == '\'') {
+            next() // close '
+        } else {
+            diagnostics.report_unterminated_char(new TextSpan(start, 1))
+        }
+
+        val span = text.Substring(start, _position - start)
+        
+        // TODO: save value
+        new SimpleToken(SyntaxKind.CharToken, start, span)
+    }
+
+    def scan_number(): SimpleToken = {
+        val start = _position
+        next()
+        while (is_digit(current())) {
+            next()
+        }
+        val span = text.Substring(start, _position - start)
+
+        new SimpleToken(SyntaxKind.NumberToken, start, span)
+    }
+
+    def scan_simple_one(kind: int): SimpleToken = {
+        val start = _position
+        val span = text.Substring(_position, 1)
+        next()
+        new SimpleToken(kind, start, span)
+    }
+
+    def scan_simple_two(kind: int): SimpleToken = {
+        val start = _position
+        val span = text.Substring(_position, 2)
+        next()
+        next()
+        new SimpleToken(kind, start, span)
+    }
+
+    def scan_ident(): SimpleToken = {
+        val start = _position
+        next()
+        while (is_ident(current())) {
+            next()
+        }
+        val span = text.Substring(start, _position - start)
+        val kind = SyntaxFacts.get_keyword_kind(span)
+
+        new SimpleToken(kind, start, span)
+    }
+
+    def scan_trivia(leading: bool): Array<SyntaxTrivia> = {
+        val trivia = new SyntaxTriviaList()
+        while (current() != '\0') {
+            if (is_eol(current())) {
+                trivia.add(scan_eol_trivia())
+                if (!leading) {
+                    // trailing trivia should always terminate at the end of a line
+                    break
+                } else {
+                    // leading trivia will terminate once we find out first non-trivia token
+                    continue
+                }
+            } else if (is_non_nl_whitespace(current())) {
+                trivia.add(scan_whitespace_trivia())
+                continue
+            } else if (current() == '/' && lookahead() == '/') {
+                trivia.add(scan_line_comment())
+                continue
+            } else if (current() == '/' && lookahead() == '*') {
+                trivia.add(scan_block_comment())
+                continue
+            } else if (is_invalid_token_trivia(current())) {
+                trivia.add(scan_invalid_token_trivia())
+            } else {
+
+            }
+
+            break
+        }
+        
+        trivia.to_array()
+    }
+
+    def scan_invalid_token_trivia(): SyntaxTrivia = {
+        val token = scan_invalid_token()
+        new SyntaxTrivia(token.kind, token.start, token.value)
+    }
+
+    def scan_line_comment(): SyntaxTrivia = {
+        val start = _position
+        next() // '/'
+        next() // '/'
+
+        while (current() != '\r' && current() != '\n' && current() != '\0') {
+            next()
+        }
+
+        val span = text.Substring(start, _position - start)
+
+        new SyntaxTrivia(SyntaxKind.LineCommentTrivia, start, span)
+    }
+
+    def scan_block_comment(): SyntaxTrivia = {
+        val start = _position
+        next() // '/'
+        next() // '*'
+
+        while (true) {
+            val curr = current()
+            val look = lookahead()
+
+            if (curr == '\0') {
+                diagnostics.report_unterminated_block_comment(new TextSpan(start, _position - start))
+                break
+            } else if (curr == '*' && look == '/') {
+                next()
+                next()
+                break
+            } else {
+                next()
+            }
+        }
+
+        val span = text.Substring(start, _position - start)
+
+        new SyntaxTrivia(SyntaxKind.BlockCommentTrivia, start, span)
+    }
+
+    def scan_eol_trivia(): SyntaxTrivia = {
+        val start = _position
+        next()
+        while (is_eol(current())) {
+            next()
+        }
+        val span = text.Substring(start, _position - start)
+
+        new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, start, span)
+    }
+
+    def scan_whitespace_trivia(): SyntaxTrivia = {
+        val start = _position
+        next()
+        while (is_non_nl_whitespace(current())) {
+            next()
+        }
+        val span = text.Substring(start, _position - start)
+
+        new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, start, span)
+    }
+}

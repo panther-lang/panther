@@ -1,0 +1,46 @@
+using System
+using System.IO
+
+object Program {
+    def main(): unit = {
+        val args: Array<string> = Environment.GetCommandLineArgs()
+        printLogo()
+
+        if(args.Length < 2) {
+            printHelp()
+        } else {
+            val diagnosticBag = new DiagnosticBag()
+
+            for (x <- 1 to args.Length) {
+                println("processing " + args[x] + "...")
+                val contents = File.ReadAllText(args[x])
+                val compilation = new Parser(contents, diagnosticBag).parse_compilation_unit()
+
+                
+            }
+
+            val diagnostics = diagnosticBag.diagnostics()
+            for (i <- 0 to diagnostics.Length) {
+                printDiagnostic(diagnostics[i])
+            }
+
+        }
+    }
+
+    def pad_right(value: string, len: int): string = {
+        var padded = value
+        while (padded.Length < len) {
+            padded = padded + " "
+        }
+
+        padded
+    }
+
+    def printDiagnostic(diagnostic: Diagnostic): unit = println("Error: " + diagnostic.message)
+
+    def printToken(token: SyntaxToken) = 
+        println(pad_right("TOKEN[" + SyntaxFacts.get_kind_name(token.kind) + "," + string(token.start) + "]: ", 36) + "\"" + token.value + "\"")
+
+    def printLogo() = println("panther - 0.0.1")
+    def printHelp() = println("expected source file argument")
+}

@@ -1,0 +1,115 @@
+class TokenList() {
+    var _items: Array<SyntaxToken> = new SyntaxToken[0]
+    var _size = 0
+
+
+    def ensure_capacity(count: int): unit = {
+        if (_size + count >= _items.Length) {
+            var newItems = new SyntaxToken[(_size + count) * 2]
+            for (i <- 0 to _size) {
+                newItems[i] = _items[i]
+            }
+            _items = newItems
+        } else {
+            ()
+        }
+    }
+
+    def add(token: SyntaxToken): unit = {
+        ensure_capacity(1)
+        _items[_size] = token
+        _size = _size + 1
+    }
+
+    def tokens(): Array<SyntaxToken> = {
+        var newItems = new SyntaxToken[_size]
+        for (i <- 0 to _size) {
+            newItems[i] = _items[i]
+        }
+        newItems
+    }
+}
+
+
+class Parser(text: string, diagnostics: DiagnosticBag) {
+
+    val _tokens: Array<SyntaxToken> = {
+        val scanner = new Scanner(text, diagnostics)
+        val tokenList = new TokenList()
+        while (true) {
+            val token = scanner.scan()
+            printToken(token)
+            tokenList.add(token)
+
+            if (token.kind == SyntaxKind.EndOfInputToken)
+            {
+                break
+            } else {
+                
+            }
+        }
+        tokenList.tokens()
+    }
+    var _position = 0
+
+    def pad_right(value: string, len: int): string = {
+        var padded = value
+        while (padded.Length < len) {
+            padded = padded + " "
+        }
+
+        padded
+    }
+
+    def printToken(token: SyntaxToken) = 
+        println(pad_right("TOKEN[" + SyntaxFacts.get_kind_name(token.kind) + "," + string(token.start) + "]: ", 36) + "\"" + token.value + "\"")
+
+
+    def next(): unit = {
+        _position = _position + 1
+    }
+
+    def current(): SyntaxToken = {
+        println("tokens: " + string(_tokens.Length))
+        val len = _tokens.Length
+
+        if (_position >= len) _tokens[len - 1]
+        else _tokens[_position]
+    }
+
+    def accept(): SyntaxToken = {
+        val token = current()
+        next()
+        token
+    }
+
+    def accept(kind: int): SyntaxToken = {
+        val curr = current()
+        if (curr.kind == kind) {
+            accept()
+        } else {
+            diagnostics.report_unexpected_token(curr.span, curr.kind, kind)
+            new SyntaxToken(kind, curr.start, "", new SyntaxTrivia[0], new SyntaxTrivia[0])
+        }
+    }
+
+    def parse_namespace_declaration(): Array<NamespaceDeclarationSyntax> = {
+        new NamespaceDeclarationSyntax[0]
+    }
+
+    def parse_usings(): Array<UsingDirectiveSyntax> = {
+        new UsingDirectiveSyntax[0]
+    }
+
+    def parse_members():Array<MemberSyntax> = {
+        new MemberSyntax[0]
+    }
+
+    def parse_compilation_unit(): CompilationUnitSyntax = {
+        val namespaceDeclaration = parse_namespace_declaration()
+        val usingDirectives = parse_usings()
+        val members = parse_members()
+        val endToken = accept(SyntaxKind.EndOfInputToken)
+        new CompilationUnitSyntax(namespaceDeclaration, usingDirectives, members, endToken)
+    }
+}
