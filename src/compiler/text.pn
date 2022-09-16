@@ -1,3 +1,5 @@
+using System.IO
+
 class TextSpan(start: int, length: int) {
     val end = start + length
 }
@@ -124,6 +126,18 @@ class SourceFile(content: string, file_name: string) {
     def to_string(start: int, length: int): string = content.Substring(start, length)
 }
 
+object MakeSourceFile {
+    def from_file(filename: string): SourceFile = {
+        val contents = File.ReadAllText(filename)
+        new SourceFile(contents, filename)
+    }
+
+    def from_content(contents: string): SourceFile =
+        new SourceFile(contents, "")
+
+    def empty(): SourceFile = from_content("")
+}
+
 class TextLocation(source_file: SourceFile, span: TextSpan) {
     val file_name = source_file.file_name
     val start_line = source_file.get_line_index(span.start)
@@ -136,7 +150,6 @@ class TextLocation(source_file: SourceFile, span: TextSpan) {
 }
 
 object TextLocationFactory {
-    def empty(): TextLocation = {
-        new TextLocation(new SourceFile("", ""), new TextSpan(0, 0))
-    }
+    def empty(): TextLocation =
+        new TextLocation(MakeSourceFile.empty(), new TextSpan(0, 0))
 }

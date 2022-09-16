@@ -11,36 +11,21 @@ object Program {
             printLogo()
             val root = new Symbol(SymbolKind.Root, "", TextLocationFactory.empty())
             val root_scope = root.get_scope()
+            val trees = new SyntaxTree[args.Length - 1]
             for (x <- 1 to args.Length) {
                 println("processing " + args[x] + "...")
-                val diagnosticBag = new DiagnosticBag()
-                val contents = File.ReadAllText(args[x])
-                val file = new SourceFile(contents, args[x])
-                val compilation = new Parser(file, diagnosticBag).parse_compilation_unit()
-
-                val binder = new Binder(root_scope, diagnosticBag)
-                binder.bind_compilation_unit(compilation)
-
-                val diagnostics = diagnosticBag.diagnostics()
-                val len = diagnostics.Length
-                if (len > 0) {
-                    for (i <- 0 to diagnostics.Length) {
-                        printDiagnostic(diagnostics[i])
-                    }
-                } else {
-                    println("parsed " + args[x] + " successfully.")
-
-                    if (false) {
-                        AstPrinter.print_compilation_unit(compilation)
-                        println()
-                        println()
-                    } else {
-                    }
-                }
+                trees[x - 1] = MakeSyntaxTree.parse_file(args[x])
             }
 
-            SymbolTreePrinter.print_symbol(root)
+            val compilation = MakeCompilation.create(trees)
 
+            if (compilation.diagnostics.Length > 0) {
+                for (i <- 0 to compilation.diagnostics.Length) {
+                    printDiagnostic(compilation.diagnostics[i])
+                }
+            } else {
+                compilation.print_symbols()
+            }
         }
     }
 
