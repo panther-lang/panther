@@ -1,15 +1,5 @@
 class Diagnostic(location: TextLocation, message: string) {
-    def to_string(): string = {
-        val span = location.span
-        val text = location.source_file
-        val file_name = location.file_name
-        val start_line = location.start_line + 1
-        val start_character = location.start_character + 1
-
-        file_name +
-            "(" + string(start_line) + "," + string(start_character) + "): " +
-            message
-    }
+    def to_string(): string = location.to_string() + ": " + message
 }
 
 class DiagnosticBag() {

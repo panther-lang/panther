@@ -130,4 +130,7 @@ class TextLocation(source_file: SourceFile, span: TextSpan) {
     val start_character = span.start - source_file.line_to_offset(start_line)
     val end_line = source_file.get_line_index(span.end)
     val end_character = span.end - source_file.line_to_offset(end_line)
+
+    def to_string(): string =
+        file_name + "(" + string(start_line + 1) + "," + string(start_character + 1) + ")"
 }

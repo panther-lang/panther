@@ -1,4 +1,6 @@
-class SyntaxTrivia(kind: int, start: int, value: string)
+class SyntaxTrivia(kind: int, start: int, value: string) {
+    def is_statement_terminator(): bool = kind == SyntaxKind.EndOfLineTrivia
+}
 
 class SyntaxTriviaList() {
     var _items: Array<SyntaxTrivia> = new SyntaxTrivia[0]
@@ -34,6 +36,17 @@ class SyntaxTriviaList() {
 class SyntaxToken(source_file: SourceFile, kind: int, start: int, value: string, leading: Array<SyntaxTrivia>, trailing: Array<SyntaxTrivia>) {
     val span = new TextSpan(start, value.Length)
     val location = new TextLocation(source_file, span)
+
+    def is_statement_terminator(): bool =
+        if (kind == SyntaxKind.EndOfInputToken || kind == SyntaxKind.CloseBraceToken) true
+        else is_statement_terminator(0)
+
+    def is_statement_terminator(index: int): bool =
+        if (index >= trailing.Length) {
+            false
+        } else if (trailing[index].is_statement_terminator()) {
+            true
+        } else is_statement_terminator(index + 1)
 }
 
 class SimpleToken(kind: int, start: int, value: string)
@@ -43,7 +56,7 @@ object SyntaxKind {
     val EndOfInputToken         = 0
     val IdentifierToken         = 1
     val CommaToken              = 2
-    
+
     // Trivia tokens
     val InvalidTokenTrivia      = 3
     val EndOfLineTrivia         = 4
@@ -150,14 +163,17 @@ object SyntaxKind {
     val ClassDeclaration    = 110
     val FunctionDeclaration = 111
     val ObjectDeclaration   = 112
+    val GlobalStatement     = 121
 
     // Top level items
     val UsingDirective       = 120
-    val GlobalStatement      = 121
     val NamespaceDeclaration = 122
 }
 
-
+object OperatorPrecedence {
+    val Lowest = 0
+    val Prefix = 9
+}
 
 object SyntaxFacts {
     def get_kind_name(kind: int): string = {

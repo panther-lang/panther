@@ -1,23 +1,185 @@
-
-
 /**
     separatorToken may be either a `.` or `,` in the case
 */
-class IdentifierNameSyntax(identifier: SyntaxToken, separatorToken: Array<SyntaxToken>)
 
-class UsingDirectiveSyntax(usingKeyword: SyntaxToken, names: Array<IdentifierNameSyntax>)
+class TypeAnnotationSyntax(colonToken: SyntaxToken, type: NameSyntax)
 
-class TypeArgumentList(lessThanToken: SyntaxToken, arguments: Array<IdentifierNameSyntax>, greaterThanToken: SyntaxToken)
+class ArrayInitializerExpressionSyntax(
+    openBrace: SyntaxToken,
+    expressions: ExpressionListSyntax,
+    closeBrace: SyntaxToken
+)
+
+class ArrayCreationExpressionSyntax(
+    newKeyword: SyntaxToken,
+    name: NameSyntax,
+    openBracket: SyntaxToken,
+    arrayRank: Array<ExpressionSyntax>,
+    closeBracket: SyntaxToken,
+    initializer: Array<ArrayInitializerExpressionSyntax>
+)
+
+class IdentifierNameSyntax(identifier: SyntaxToken)
+class GenericNameSyntax(identifier: SyntaxToken, typeArgumentlist: TypeArgumentListSyntax)
+class QualifiedNameSyntax(left: NameSyntax, dotToken: SyntaxToken, right: SimpleNameSyntax)
+
+class SimpleNameSyntax(
+    kind: int,
+    genericName: Array<GenericNameSyntax>,
+    identifierName: Array<IdentifierNameSyntax>
+)
+class NameSyntax(
+    kind: int,
+    qualifiedName: Array<QualifiedNameSyntax>,
+    simpleName: Array<SimpleNameSyntax>
+)
+class ExpressionItemSyntax(expression: ExpressionSyntax, separatorToken: Array<SyntaxToken>)
+class ExpressionListSyntax(expressions: Array<ExpressionItemSyntax>)
+
+class AssignmentExpressionSyntax()
+class BinaryExpressionSyntax(left: ExpressionSyntax, operator: SyntaxToken, right: ExpressionSyntax)
+class BlockExpressionSyntax(
+    openBrace: SyntaxToken,
+    statements: Array<StatementSyntax>,
+    expression: Array<ExpressionSyntax>, /* 0 to 1 */
+    closeBrace: SyntaxToken
+)
+class CallExpressionSyntax(name: ExpressionSyntax, openParen: SyntaxToken, arguments: ExpressionListSyntax, closeParen: SyntaxToken)
+class ForExpressionSyntax()
+class GroupExpressionSyntax(
+    openParen: SyntaxToken,
+    expression: ExpressionSyntax,
+    closeParen: SyntaxToken
+)
+class IfExpressionSyntax(
+    ifKeyword: SyntaxToken,
+    openParen: SyntaxToken,
+    condition: ExpressionSyntax,
+    closeParen: SyntaxToken,
+    then: ExpressionSyntax,
+    elseKeyword: SyntaxToken,
+    elseExpr: ExpressionSyntax
+)
+class IndexExpressionSyntax()
+class LiteralExpressionSyntax(token: SyntaxToken)
+class MemberAccessExpressionSyntax(
+    left: ExpressionSyntax,
+    dotToken: SyntaxToken,
+    right: ExpressionSyntax
+)
+class NewExpressionSyntax(
+    newKeyword: SyntaxToken,
+    identifier: NameSyntax,
+    openParen: SyntaxToken,
+    arguments: ExpressionListSyntax,
+    closeParen: SyntaxToken
+)
+class UnaryExpressionSyntax()
+class UnitExpressionSyntax(openParen: SyntaxToken, closeParen: SyntaxToken)
+class WhileExpressionSyntax()
+
+class ExpressionSyntax(
+    kind: int,
+    arrayCreationExpression: Array<ArrayCreationExpressionSyntax>,
+    assignmentExpression: Array<AssignmentExpressionSyntax>,
+    binaryExpression: Array<BinaryExpressionSyntax>,
+    blockExpression: Array<BlockExpressionSyntax>,
+    callExpression: Array<CallExpressionSyntax>,
+    forExpression: Array<ForExpressionSyntax>,
+    groupExpression: Array<GroupExpressionSyntax>,
+    identifierName: Array<IdentifierNameSyntax>,
+    ifExpression: Array<IfExpressionSyntax>,
+    indexExpression: Array<IndexExpressionSyntax>,
+    literalExpression: Array<LiteralExpressionSyntax>,
+    memberAccessExpression: Array<MemberAccessExpressionSyntax>,
+    newExpression: Array<NewExpressionSyntax>,
+    unaryExpression: Array<UnaryExpressionSyntax>,
+    unitExpression: Array<UnitExpressionSyntax>,
+    whileExpression: Array<WhileExpressionSyntax>
+)
+
+class FunctionBodySyntax(equalToken: SyntaxToken, expression: ExpressionSyntax)
+class ParameterSyntax(
+    identifier: SyntaxToken,
+    typeAnnotation: TypeAnnotationSyntax,
+    commaToken: Array<SyntaxToken>
+)
+
+class TypeArgumentItemSyntax(name: NameSyntax, separator: Array<SyntaxToken>)
+
+class TypeArgumentListSyntax(
+    lessThanToken: SyntaxToken,
+    arguments: Array<TypeArgumentItemSyntax>,
+    greaterThanToken: SyntaxToken
+)
+
+class UsingDirectiveSyntax(usingKeyword: SyntaxToken, names: NameSyntax)
+
+class TemplateSyntax(
+    openBrace: SyntaxToken,
+    members: Array<MemberSyntax>,
+    closeBrace: SyntaxToken
+)
+
+class ObjectDeclarationSyntax(
+    objectKeyword: SyntaxToken,
+    identifier: SyntaxToken,
+    template: TemplateSyntax
+)
+
+class ClassDeclarationSyntax(
+    classKeyword: SyntaxToken,
+    identifier: SyntaxToken,
+    openParenToken: SyntaxToken,
+    parameters: Array<ParameterSyntax>,
+    closeParenToken: SyntaxToken,
+    template: Array<TemplateSyntax>
+)
+
+class FunctionDeclarationSyntax(
+    defKeyword: SyntaxToken,
+    identifier: SyntaxToken,
+    openParenToken: SyntaxToken,
+    parameters: Array<ParameterSyntax>,
+    closeParenToken: SyntaxToken,
+    typeAnnotation: Array<TypeAnnotationSyntax>,
+    body: Array<FunctionBodySyntax>
+)
+
+class VariableDeclarationStatementSyntax(
+    valOrVarKeyword: SyntaxToken,
+    identifier: SyntaxToken,
+    typeAnnotation: Array<TypeAnnotationSyntax>,
+    equalToken: SyntaxToken,
+    expression: ExpressionSyntax
+)
+class BreakStatementSyntax()
+class ContinueStatementSyntax()
+class ExpressionStatementSyntax(expression: ExpressionSyntax)
+
+class StatementSyntax(
+    kind: int,
+    variableDeclarationStatement: Array<VariableDeclarationStatementSyntax>,
+    breakStatement: Array<BreakStatementSyntax>,
+    continueStatement: Array<ContinueStatementSyntax>,
+    expressionStatement: Array<ExpressionStatementSyntax>
+)
+
+class GlobalStatementSyntax(statement: StatementSyntax)
+
+class MemberSyntax(
+    kind: int,
+    objects: Array<ObjectDeclarationSyntax>,
+    classes: Array<ClassDeclarationSyntax>,
+    functions: Array<FunctionDeclarationSyntax>,
+    statements: Array<GlobalStatementSyntax>
+)
 
 /**
   * names [1..n]
-  * typeArgumentList [0..1]
   */
-class NamespaceDeclarationSyntax(namespaceKeyword: SyntaxToken, names: Array<IdentifierNameSyntax>, typeArgumentList: Array<TypeArgumentList>) {
-    def is_empty() = names.Length == 0 && typeArgumentList.Length == 0
-}
+class NamespaceDeclarationSyntax(namespaceKeyword: SyntaxToken, name: NameSyntax)
 
-class MemberSyntax()
 
 /**
     namespaceDeclaration [0..1]
@@ -40,17 +202,20 @@ object AstPrinter {
 
     def print_namespace_declaration(decl: NamespaceDeclarationSyntax): unit = {
         print_token(decl.namespaceKeyword)
-        print_identifier_names(decl.names)
-        print_type_argument_lists(decl.typeArgumentList)
+        print_name(decl.name)
     }
 
-    def print_type_argument_lists(nodes: Array<TypeArgumentList>): unit = {
+    def print_name(name: NameSyntax): unit = {
+        panic("print_name")
+    }
+
+    def print_type_argument_lists(nodes: Array<TypeArgumentListSyntax>): unit = {
         for (x <- 0 to nodes.Length) {
             print_type_argument_list(nodes[x])
         }
     }
 
-    def print_type_argument_list(node: TypeArgumentList): unit = panic()
+    def print_type_argument_list(node: TypeArgumentListSyntax): unit = panic()
 
     def print_identifier_names(nodes: Array<IdentifierNameSyntax>): unit = {
         for (x <- 0 to nodes.Length) {
@@ -61,5 +226,15 @@ object AstPrinter {
     def print_identifier_name(node: IdentifierNameSyntax): unit = panic()
 
     def print_trivia(node: SyntaxTrivia): unit = ()
-    def print_token(node: SyntaxToken): unit = ()
+    def print_token(token: SyntaxToken): unit =
+        println(token.location.to_string() + "[" + SyntaxFacts.get_kind_name(token.kind) + "]: " + "\"" + token.value + "\"")
+
+    def pad_right(value: string, len: int): string = {
+        var padded = value
+        while (padded.Length < len) {
+            padded = padded + " "
+        }
+
+        padded
+    }
 }

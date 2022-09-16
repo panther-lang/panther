@@ -32,7 +32,6 @@ class TokenList() {
 
 
 class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
-
     val _tokens: Array<SyntaxToken> = {
         val scanner = new Scanner(source_file, diagnostics)
         val tokenList = new TokenList()
@@ -55,6 +54,14 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
         _position = _position + 1
     }
 
+    def debug_print(note: string): unit = {
+        val curr = current()
+        // println(note + ": " + SyntaxFacts.get_kind_name(curr.kind))
+        // print("  ")
+        // AstPrinter.print_token(curr)
+    }
+
+    def current_kind(): int = current().kind
     def current(): SyntaxToken = {
         val len = _tokens.Length
 
@@ -62,9 +69,27 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
         else _tokens[_position]
     }
 
+    def current_precedence(): int = {
+        val kind = current_kind()
+        if (kind == SyntaxKind.EqualsToken) 1
+        else if (kind == SyntaxKind.PipeToken || kind == SyntaxKind.PipePipeToken) 2
+        else if (kind == SyntaxKind.CaretToken) 3
+        else if (kind == SyntaxKind.AmpersandToken || kind == SyntaxKind.AmpersandAmpersandToken) 4
+        else if (kind == SyntaxKind.EqualsEqualsToken || kind == SyntaxKind.BangEqualsToken) 5
+        else if (kind == SyntaxKind.LessThanToken || kind == SyntaxKind.LessThanEqualsToken) 6
+        else if (kind == SyntaxKind.GreaterThanToken || kind == SyntaxKind.GreaterThanEqualsToken) 6
+        else if (kind == SyntaxKind.PlusToken || kind == SyntaxKind.DashToken) 7
+        else if (kind == SyntaxKind.StarToken || kind == SyntaxKind.SlashToken) 8
+        // unary/prefix is 9
+        else if (kind == SyntaxKind.OpenParenToken || kind == SyntaxKind.OpenBracketToken) 10
+        else if (kind == SyntaxKind.DotToken) 10
+        else OperatorPrecedence.Lowest
+    }
+
     def accept(): SyntaxToken = {
         val token = current()
         next()
+        // debug_print("accepted: " + SyntaxFacts.get_kind_name(token.kind))
         token
     }
 
@@ -78,19 +103,955 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
         }
     }
 
+    def is_terminating_line(in_group: bool, expression: ExpressionSyntax): bool = {
+        val is_terminating = !in_group && has_statement_terminator(expression)
+        // debug_print("is_terminating: " + string(is_terminating))
+        is_terminating
+    }
+
+    def has_statement_terminator(expression: ExpressionSyntax): bool = {
+        val kind = expression.kind
+        if (kind == SyntaxKind.IdentifierName) {
+            expression.identifierName[0].identifier.is_statement_terminator()
+        } else if (kind == SyntaxKind.LiteralExpression) {
+            expression.literalExpression[0].token.is_statement_terminator()
+        } else if (kind == SyntaxKind.BlockExpression) {
+            expression.blockExpression[0].closeBrace.is_statement_terminator()
+        } else if (kind == SyntaxKind.NewExpression) {
+            expression.newExpression[0].closeParen.is_statement_terminator()
+        } else if (kind == SyntaxKind.ArrayCreationExpression) {
+            val expr = expression.arrayCreationExpression[0]
+            if (expr.initializer.Length > 0) {
+                expr.initializer[0].closeBrace.is_statement_terminator()
+            } else {
+                expr.closeBracket.is_statement_terminator()
+            }
+        } else if (kind == SyntaxKind.CallExpression) {
+            expression.callExpression[0].closeParen.is_statement_terminator()
+        } else if (kind == SyntaxKind.GroupExpression) {
+            expression.groupExpression[0].closeParen.is_statement_terminator()
+        } else if (kind == SyntaxKind.BinaryExpression) {
+            has_statement_terminator(expression.binaryExpression[0].right)
+        } else if (kind == SyntaxKind.IfExpression) {
+            has_statement_terminator(expression.ifExpression[0].elseExpr)
+        } else if (kind == SyntaxKind.MemberAccessExpression) {
+            has_statement_terminator(expression.memberAccessExpression[0].right)
+        } else {
+            panic("has_statement_terminator: " + SyntaxFacts.get_kind_name(kind))
+            false
+        }
+    }
+
+    def parse_identifier_name(): ExpressionSyntax = {
+        debug_print("parse_identifier_name")
+        val identifier = accept(SyntaxKind.IdentifierToken)
+
+        val name = new IdentifierNameSyntax(identifier)
+
+        new ExpressionSyntax(
+            SyntaxKind.IdentifierName,
+            new ArrayCreationExpressionSyntax[0],
+            new AssignmentExpressionSyntax[0],
+            new BinaryExpressionSyntax[0],
+            new BlockExpressionSyntax[0],
+            new CallExpressionSyntax[0],
+            new ForExpressionSyntax[0],
+            new GroupExpressionSyntax[0],
+            new IdentifierNameSyntax[] { name },
+            new IfExpressionSyntax[0],
+            new IndexExpressionSyntax[0],
+            new LiteralExpressionSyntax[0],
+            new MemberAccessExpressionSyntax[0],
+            new NewExpressionSyntax[0],
+            new UnaryExpressionSyntax[0],
+            new UnitExpressionSyntax[0],
+            new WhileExpressionSyntax[0]
+        )
+    }
+
+    def parse_qualified_name(left: NameSyntax): NameSyntax = {
+        debug_print("parse_qualified_name")
+        if (left.kind == SyntaxKind.GenericName || current_kind() != SyntaxKind.DotToken) {
+            left
+        } else {
+            val dot = accept()
+            val right = parse_simple_name()
+            val qn = new QualifiedNameSyntax(left, dot, right)
+            parse_qualified_name(
+                new NameSyntax(0,
+                    new QualifiedNameSyntax[] { qn },
+                    new SimpleNameSyntax[0]
+                )
+            )
+        }
+    }
+
+    def parse_name(): NameSyntax = {
+        debug_print("parse_name")
+        val simple_name = parse_simple_name()
+        val name = new NameSyntax(
+            simple_name.kind,
+            new QualifiedNameSyntax[0],
+            new SimpleNameSyntax[] { simple_name }
+        )
+
+        parse_qualified_name(name)
+    }
+
+    def parse_simple_name(): SimpleNameSyntax = {
+        debug_print("parse_simple_name")
+        val ident = accept(SyntaxKind.IdentifierToken)
+
+        if (current_kind() == SyntaxKind.LessThanToken) {
+            val typeArgumentlist = parse_type_argument_list()
+            new SimpleNameSyntax(
+                SyntaxKind.GenericName,
+                new GenericNameSyntax[] {
+                    new GenericNameSyntax(ident, typeArgumentlist)
+                },
+                new IdentifierNameSyntax[0]
+            )
+        } else {
+            new SimpleNameSyntax(
+                SyntaxKind.IdentifierName,
+                new GenericNameSyntax[0],
+                new IdentifierNameSyntax[] {
+                    new IdentifierNameSyntax(ident)
+                }
+            )
+        }
+    }
+
     def parse_namespace_declaration(): Array<NamespaceDeclarationSyntax> = {
-        new NamespaceDeclarationSyntax[0]
+        debug_print("parse_namespace_declaration")
+        if (current_kind() == SyntaxKind.NamespaceKeyword) {
+            val keyword = accept()
+            val name = parse_name()
+
+            new NamespaceDeclarationSyntax[] {
+                new NamespaceDeclarationSyntax(keyword, name)
+            }
+        } else {
+            new NamespaceDeclarationSyntax[0]
+        }
     }
 
     def parse_usings(): Array<UsingDirectiveSyntax> = {
-        new UsingDirectiveSyntax[0]
+        debug_print("parse_usings")
+        var size = 0
+        // TODO: support resizing
+        val usings = new UsingDirectiveSyntax[5]
+
+        while (current_kind() == SyntaxKind.UsingKeyword) {
+            val keyword = accept()
+            val name = parse_name()
+
+            usings[size] = new UsingDirectiveSyntax(keyword, name)
+            size = size + 1
+        }
+
+        var result = new UsingDirectiveSyntax[size]
+        for (i <- 0 to size) {
+            result[i] = usings[i]
+        }
+        result
     }
 
-    def parse_members():Array<MemberSyntax> = {
-        new MemberSyntax[0]
+    def parse_template(): TemplateSyntax = {
+        debug_print("parse_template")
+        val open = accept(SyntaxKind.OpenBraceToken)
+        val members = parse_members()
+        val close = accept(SyntaxKind.CloseBraceToken)
+
+        new TemplateSyntax(open, members, close)
+    }
+
+    def parse_object_declaration(): MemberSyntax = {
+        debug_print("parse_object_declaration")
+        val objectKeyword = accept(SyntaxKind.ObjectKeyword)
+        val identifier = accept(SyntaxKind.IdentifierToken)
+        val template = parse_template()
+
+        new MemberSyntax(
+            SyntaxKind.ObjectDeclaration,
+            new ObjectDeclarationSyntax[] { new ObjectDeclarationSyntax(objectKeyword, identifier, template) },
+            new ClassDeclarationSyntax[0],
+            new FunctionDeclarationSyntax[0],
+            new GlobalStatementSyntax[0]
+        )
+    }
+
+    def parse_class_declaration(): MemberSyntax = {
+        debug_print("parse_class_declaration")
+        val keyword = accept()
+        val identifier = accept(SyntaxKind.IdentifierToken)
+        val open = accept(SyntaxKind.OpenParenToken)
+        val parameters = parse_parameter_list()
+        val close = accept(SyntaxKind.CloseParenToken)
+        val template = if (current_kind() == SyntaxKind.OpenBraceToken) {
+             new TemplateSyntax[] { parse_template() }
+        } else {
+            new TemplateSyntax[0]
+        }
+
+        val cls = new ClassDeclarationSyntax(keyword, identifier, open, parameters, close, template)
+        new MemberSyntax(
+            SyntaxKind.ClassDeclaration,
+            new ObjectDeclarationSyntax[0],
+            new ClassDeclarationSyntax[] { cls },
+            new FunctionDeclarationSyntax[0],
+            new GlobalStatementSyntax[0]
+        )
+    }
+
+    def parse_parameter(): ParameterSyntax = {
+        debug_print("parse_parameter")
+        val identifier = accept()
+        val typeAnnotation = parse_type_annotation()
+        val comma = if (current_kind() == SyntaxKind.CommaToken) {
+            new SyntaxToken[] { accept() }
+        } else {
+            new SyntaxToken[0]
+        }
+        new ParameterSyntax(identifier, typeAnnotation, comma)
+    }
+
+    def parse_type_argument_list_names(): Array<TypeArgumentItemSyntax> = {
+        debug_print("parse_type_argument_list_names")
+        var size = 0
+        // TODO: support resizing
+        val arguments = new TypeArgumentItemSyntax[5]
+
+        while (true) {
+            val arg = parse_name()
+            if (current_kind() != SyntaxKind.CommaToken) {
+                arguments[size] = new TypeArgumentItemSyntax(arg, new SyntaxToken[0])
+                size = size + 1
+                break
+            } else {
+                arguments[size] = new TypeArgumentItemSyntax(arg, new SyntaxToken[] { accept() })
+                size = size + 1
+            }
+        }
+
+        var result = new TypeArgumentItemSyntax[size]
+        for (i <- 0 to size) {
+            result[i] = arguments[i]
+        }
+        result
+    }
+
+    def parse_type_argument_list(): TypeArgumentListSyntax = {
+        debug_print("parse_type_argument_list")
+        val lessThan = accept()
+        val names = parse_type_argument_list_names()
+        val greaterThan = accept(SyntaxKind.GreaterThanToken)
+
+        new TypeArgumentListSyntax(lessThan, names, greaterThan)
+    }
+
+    def parse_type_annotation(): TypeAnnotationSyntax = {
+        debug_print("parse_type_annotation")
+        val colon = accept()
+        val type = parse_name()
+
+        new TypeAnnotationSyntax(colon, type)
+    }
+
+    def parse_optional_type_annotation(): Array<TypeAnnotationSyntax> = {
+        debug_print("parse_optional_type_annotation")
+        if (current_kind() == SyntaxKind.ColonToken) {
+            new TypeAnnotationSyntax[] {
+                parse_type_annotation()
+            }
+        } else {
+            new TypeAnnotationSyntax[0]
+        }
+    }
+
+    def parse_parameter_list(): Array<ParameterSyntax> = {
+        debug_print("parse_parameter_list")
+        var size = 0
+        // TODO: support resizing
+        val parameters = new ParameterSyntax[10]
+
+        while (current_kind() == SyntaxKind.IdentifierToken) {
+            val param = parse_parameter()
+            parameters[size] = param
+            size = size + 1
+
+            if (param.commaToken.Length == 0) {
+                break
+            } else {
+
+            }
+        }
+
+        var result = new ParameterSyntax[size]
+        for (i <- 0 to size) {
+            result[i] = parameters[i]
+        }
+        result
+    }
+
+    def parse_block_statements(): Array<StatementSyntax> = {
+        debug_print("parse_block_statements")
+        var size = 0
+        // TODO: support resizing
+        val statements = new StatementSyntax[10]
+        while (current_kind() != SyntaxKind.EndOfInputToken && current_kind() != SyntaxKind.CloseBraceToken) {
+            statements[size] = parse_statement()
+            size = size + 1
+        }
+
+        var result = new StatementSyntax[size]
+        for (i <- 0 to size) {
+            result[i] = statements[i]
+        }
+        result
+    }
+
+    def drop_statement(statements: Array<StatementSyntax>): Array<StatementSyntax> = {
+        val size = statements.Length - 1
+        val result = new StatementSyntax[size]
+        for (i <- 0 to size) {
+            result[i] = statements[i]
+        }
+        result
+    }
+
+    def parse_block_expression(): ExpressionSyntax = {
+        debug_print("parse_block_expression")
+        val openBrace = accept()
+        val statements = parse_block_statements()
+        val closeBrace = accept(SyntaxKind.CloseBraceToken)
+
+        // convert last statement to expression if possible
+        val block =
+            if (statements.Length > 0) {
+                val lastStatement = statements[statements.Length - 1]
+                if (lastStatement.kind == SyntaxKind.ExpressionStatement) {
+                    new BlockExpressionSyntax(
+                        openBrace,
+                        drop_statement(statements),
+                        new ExpressionSyntax[] { lastStatement.expressionStatement[0].expression },
+                        closeBrace
+                    )
+                } else {
+                    new BlockExpressionSyntax(
+                        openBrace,
+                        statements,
+                        new ExpressionSyntax[0],
+                        closeBrace
+                    )
+                }
+            } else {
+                new BlockExpressionSyntax(
+                    openBrace,
+                    statements,
+                    new ExpressionSyntax[0],
+                    closeBrace
+                )
+            }
+
+        new ExpressionSyntax(
+            SyntaxKind.BlockExpression,
+            new ArrayCreationExpressionSyntax[0],
+            new AssignmentExpressionSyntax[0],
+            new BinaryExpressionSyntax[0],
+            new BlockExpressionSyntax[] { block },
+            new CallExpressionSyntax[0],
+            new ForExpressionSyntax[0],
+            new GroupExpressionSyntax[0],
+            new IdentifierNameSyntax[0],
+            new IfExpressionSyntax[0],
+            new IndexExpressionSyntax[0],
+            new LiteralExpressionSyntax[0],
+            new MemberAccessExpressionSyntax[0],
+            new NewExpressionSyntax[0],
+            new UnaryExpressionSyntax[0],
+            new UnitExpressionSyntax[0],
+            new WhileExpressionSyntax[0]
+        )
+    }
+
+    def parse_group_or_unit_expression(): ExpressionSyntax = {
+        debug_print("parse_group_or_unit_expression")
+        val open = accept()
+        if (current_kind() == SyntaxKind.CloseParenToken) {
+            val close = accept()
+            val unit_expr = new UnitExpressionSyntax(open, close)
+            new ExpressionSyntax(
+                SyntaxKind.UnitExpression,
+                new ArrayCreationExpressionSyntax[0],
+                new AssignmentExpressionSyntax[0],
+                new BinaryExpressionSyntax[0],
+                new BlockExpressionSyntax[0],
+                new CallExpressionSyntax[0],
+                new ForExpressionSyntax[0],
+                new GroupExpressionSyntax[0],
+                new IdentifierNameSyntax[0],
+                new IfExpressionSyntax[0],
+                new IndexExpressionSyntax[0],
+                new LiteralExpressionSyntax[0],
+                new MemberAccessExpressionSyntax[0],
+                new NewExpressionSyntax[0],
+                new UnaryExpressionSyntax[0],
+                new UnitExpressionSyntax[] { unit_expr },
+                new WhileExpressionSyntax[0]
+            )
+        } else {
+            val expr = parse_expression(OperatorPrecedence.Lowest)
+            val close2 = accept(SyntaxKind.CloseParenToken)
+            val group = new GroupExpressionSyntax(open, expr, close2)
+
+            new ExpressionSyntax(
+                SyntaxKind.GroupExpression,
+                new ArrayCreationExpressionSyntax[0],
+                new AssignmentExpressionSyntax[0],
+                new BinaryExpressionSyntax[0],
+                new BlockExpressionSyntax[0],
+                new CallExpressionSyntax[0],
+                new ForExpressionSyntax[0],
+                new GroupExpressionSyntax[] { group },
+                new IdentifierNameSyntax[0],
+                new IfExpressionSyntax[0],
+                new IndexExpressionSyntax[0],
+                new LiteralExpressionSyntax[0],
+                new MemberAccessExpressionSyntax[0],
+                new NewExpressionSyntax[0],
+                new UnaryExpressionSyntax[0],
+                new UnitExpressionSyntax[0],
+                new WhileExpressionSyntax[0]
+            )
+        }
+    }
+
+    def parse_literal_expression(): ExpressionSyntax = {
+        debug_print("parse_literal_expression")
+        val token = accept()
+        val literal = new LiteralExpressionSyntax(token)
+
+        new ExpressionSyntax(
+            SyntaxKind.LiteralExpression,
+            new ArrayCreationExpressionSyntax[0],
+            new AssignmentExpressionSyntax[0],
+            new BinaryExpressionSyntax[0],
+            new BlockExpressionSyntax[0],
+            new CallExpressionSyntax[0],
+            new ForExpressionSyntax[0],
+            new GroupExpressionSyntax[0],
+            new IdentifierNameSyntax[0],
+            new IfExpressionSyntax[0],
+            new IndexExpressionSyntax[0],
+            new LiteralExpressionSyntax[] { literal },
+            new MemberAccessExpressionSyntax[0],
+            new NewExpressionSyntax[0],
+            new UnaryExpressionSyntax[0],
+            new UnitExpressionSyntax[0],
+            new WhileExpressionSyntax[0]
+        )
+    }
+
+    def parse_if_expression(): ExpressionSyntax = {
+        debug_print("parse_if_expression")
+        val keyword = accept()
+        val open = accept(SyntaxKind.OpenParenToken)
+        val condition = parse_expression(OperatorPrecedence.Lowest)
+        val close = accept(SyntaxKind.CloseParenToken)
+        val then = parse_expression(OperatorPrecedence.Lowest)
+        val elseKeyword = accept(SyntaxKind.ElseKeyword)
+        val elseExpr = parse_expression(OperatorPrecedence.Lowest)
+
+        val expr = new IfExpressionSyntax(keyword, open, condition, close, then, elseKeyword, elseExpr)
+
+        new ExpressionSyntax(
+            SyntaxKind.IfExpression,
+            new ArrayCreationExpressionSyntax[0],
+            new AssignmentExpressionSyntax[0],
+            new BinaryExpressionSyntax[0],
+            new BlockExpressionSyntax[0],
+            new CallExpressionSyntax[0],
+            new ForExpressionSyntax[0],
+            new GroupExpressionSyntax[0],
+            new IdentifierNameSyntax[0],
+            new IfExpressionSyntax[] { expr },
+            new IndexExpressionSyntax[0],
+            new LiteralExpressionSyntax[0],
+            new MemberAccessExpressionSyntax[0],
+            new NewExpressionSyntax[0],
+            new UnaryExpressionSyntax[0],
+            new UnitExpressionSyntax[0],
+            new WhileExpressionSyntax[0]
+        )
+    }
+
+    def parse_array_initializers(): ArrayInitializerExpressionSyntax = {
+        debug_print("parse_array_initializers")
+        val openBrace = accept()
+        val expressions = parse_expression_list(SyntaxKind.CloseBraceToken)
+        val closeBrace = accept(SyntaxKind.CloseBraceToken)
+
+        new ArrayInitializerExpressionSyntax(openBrace, expressions, closeBrace)
+    }
+
+    def parse_new_expression(): ExpressionSyntax = {
+        debug_print("parse_new_expression")
+        val keyword = accept()
+        val type = parse_name()
+
+        if (current_kind() == SyntaxKind.OpenBracketToken) {
+            debug_print("parsing array creation")
+            val openBracket = accept()
+            val rank = if (current_kind() == SyntaxKind.CloseBracketToken) {
+                new ExpressionSyntax[0]
+            } else {
+                new ExpressionSyntax[] { parse_expression(OperatorPrecedence.Lowest) }
+            }
+            val closeBracket = accept(SyntaxKind.CloseBracketToken)
+
+            val initializer = if (current_kind() == SyntaxKind.OpenBraceToken) {
+                new ArrayInitializerExpressionSyntax[] { parse_array_initializers() }
+            } else {
+                new ArrayInitializerExpressionSyntax[0]
+            }
+
+            val arrayExpr = new ArrayCreationExpressionSyntax(
+                keyword,
+                type,
+                openBracket,
+                rank,
+                closeBracket,
+                initializer
+            )
+
+            new ExpressionSyntax(
+                SyntaxKind.ArrayCreationExpression,
+                new ArrayCreationExpressionSyntax[] { arrayExpr },
+                new AssignmentExpressionSyntax[0],
+                new BinaryExpressionSyntax[0],
+                new BlockExpressionSyntax[0],
+                new CallExpressionSyntax[0],
+                new ForExpressionSyntax[0],
+                new GroupExpressionSyntax[0],
+                new IdentifierNameSyntax[0],
+                new IfExpressionSyntax[0],
+                new IndexExpressionSyntax[0],
+                new LiteralExpressionSyntax[0],
+                new MemberAccessExpressionSyntax[0],
+                new NewExpressionSyntax[0],
+                new UnaryExpressionSyntax[0],
+                new UnitExpressionSyntax[0],
+                new WhileExpressionSyntax[0]
+            )
+        } else {
+            debug_print("parsing new expression")
+            val open = accept(SyntaxKind.OpenParenToken)
+            val arguments = parse_expression_list(SyntaxKind.CloseParenToken)
+            val close = accept(SyntaxKind.CloseParenToken)
+
+            val expr = new NewExpressionSyntax(keyword, type, open, arguments, close)
+
+            new ExpressionSyntax(
+                SyntaxKind.NewExpression,
+                new ArrayCreationExpressionSyntax[0],
+                new AssignmentExpressionSyntax[0],
+                new BinaryExpressionSyntax[0],
+                new BlockExpressionSyntax[0],
+                new CallExpressionSyntax[0],
+                new ForExpressionSyntax[0],
+                new GroupExpressionSyntax[0],
+                new IdentifierNameSyntax[0],
+                new IfExpressionSyntax[0],
+                new IndexExpressionSyntax[0],
+                new LiteralExpressionSyntax[0],
+                new MemberAccessExpressionSyntax[0],
+                new NewExpressionSyntax[] { expr },
+                new UnaryExpressionSyntax[0],
+                new UnitExpressionSyntax[0],
+                new WhileExpressionSyntax[0]
+            )
+        }
+    }
+
+    def parse_prefix_expression(): ExpressionSyntax = {
+        debug_print("parse_prefix_expression")
+        val kind = current_kind()
+        if (kind == SyntaxKind.OpenBraceToken) {
+            parse_block_expression()
+        } else if (kind == SyntaxKind.IdentifierToken) {
+            parse_identifier_name()
+        } else if (kind == SyntaxKind.OpenParenToken) {
+            parse_group_or_unit_expression()
+        } else if (kind == SyntaxKind.NumberToken) {
+            parse_literal_expression()
+        } else if (kind == SyntaxKind.IfKeyword) {
+            parse_if_expression()
+        } else if (kind == SyntaxKind.NewKeyword) {
+            parse_new_expression()
+        } else {
+            todo("parse_prefix_expression")
+
+            new ExpressionSyntax(
+                0,
+                new ArrayCreationExpressionSyntax[0],
+                new AssignmentExpressionSyntax[0],
+                new BinaryExpressionSyntax[0],
+                new BlockExpressionSyntax[0],
+                new CallExpressionSyntax[0],
+                new ForExpressionSyntax[0],
+                new GroupExpressionSyntax[0],
+                new IdentifierNameSyntax[0],
+                new IfExpressionSyntax[0],
+                new IndexExpressionSyntax[0],
+                new LiteralExpressionSyntax[0],
+                new MemberAccessExpressionSyntax[0],
+                new NewExpressionSyntax[0],
+                new UnaryExpressionSyntax[0],
+                new UnitExpressionSyntax[0],
+                new WhileExpressionSyntax[0]
+            )
+        }
+    }
+
+    def parse_expression(precedence: int): ExpressionSyntax =
+        parse_expression(precedence, false)
+
+    def parse_expression(precedence: int, in_group: bool): ExpressionSyntax = {
+        debug_print("parse_expression")
+        val left = parse_prefix_expression()
+
+        parse_infix_expression(left, in_group, precedence)
+    }
+
+    def parse_expression_list(terminator: int): ExpressionListSyntax = {
+        debug_print("parse_expression_list")
+        var size = 0
+        // TODO: support resizing
+        val arguments = new ExpressionItemSyntax[10]
+
+        if (current_kind() == terminator) {
+            new ExpressionListSyntax(new ExpressionItemSyntax[0])
+        } else {
+
+            while (true) {
+                val expr = parse_expression(OperatorPrecedence.Lowest, false)
+                if (current_kind() == terminator || current_kind() == SyntaxKind.EndOfInputToken || current_kind() != SyntaxKind.CommaToken) {
+                    arguments[size] = new ExpressionItemSyntax(expr, new SyntaxToken[0])
+                    size = size + 1
+                    break
+                } else {
+                    arguments[size] = new ExpressionItemSyntax(expr, new SyntaxToken[] { accept() })
+                    size = size + 1
+                }
+            }
+
+            var result = new ExpressionItemSyntax[size]
+            for (i <- 0 to size) {
+                result[i] = arguments[i]
+            }
+            new ExpressionListSyntax(result)
+        }
+    }
+
+    def parse_call_expression(name: ExpressionSyntax): ExpressionSyntax = {
+        debug_print("parse_call_expression")
+        val open = accept()
+        val arguments = parse_expression_list(SyntaxKind.CloseParenToken)
+        val close = accept(SyntaxKind.CloseParenToken)
+
+        val callExpression = new CallExpressionSyntax(name, open, arguments, close)
+        new ExpressionSyntax(
+            SyntaxKind.CallExpression,
+            new ArrayCreationExpressionSyntax[0],
+            new AssignmentExpressionSyntax[0],
+            new BinaryExpressionSyntax[0],
+            new BlockExpressionSyntax[0],
+            new CallExpressionSyntax[] { callExpression },
+            new ForExpressionSyntax[0],
+            new GroupExpressionSyntax[0],
+            new IdentifierNameSyntax[0],
+            new IfExpressionSyntax[0],
+            new IndexExpressionSyntax[0],
+            new LiteralExpressionSyntax[0],
+            new MemberAccessExpressionSyntax[0],
+            new NewExpressionSyntax[0],
+            new UnaryExpressionSyntax[0],
+            new UnitExpressionSyntax[0],
+            new WhileExpressionSyntax[0]
+        )
+    }
+
+    def parse_binary_expression(left: ExpressionSyntax): ExpressionSyntax = {
+        debug_print("parse_binary_expression")
+        val precedence = current_precedence()
+        val operator = accept()
+        var right = parse_expression(precedence)
+
+        val expr = new BinaryExpressionSyntax(left, operator, right)
+
+        new ExpressionSyntax(
+            SyntaxKind.BinaryExpression,
+            new ArrayCreationExpressionSyntax[0],
+            new AssignmentExpressionSyntax[0],
+            new BinaryExpressionSyntax[] { expr },
+            new BlockExpressionSyntax[0],
+            new CallExpressionSyntax[0],
+            new ForExpressionSyntax[0],
+            new GroupExpressionSyntax[0],
+            new IdentifierNameSyntax[0],
+            new IfExpressionSyntax[0],
+            new IndexExpressionSyntax[0],
+            new LiteralExpressionSyntax[0],
+            new MemberAccessExpressionSyntax[0],
+            new NewExpressionSyntax[0],
+            new UnaryExpressionSyntax[0],
+            new UnitExpressionSyntax[0],
+            new WhileExpressionSyntax[0]
+        )
+    }
+
+    def parse_member_access_expression(left: ExpressionSyntax): ExpressionSyntax = {
+        val dot = accept()
+        val right = parse_identifier_name()
+
+        val expr = new MemberAccessExpressionSyntax(left, dot, right)
+
+        new ExpressionSyntax(
+            SyntaxKind.MemberAccessExpression,
+            new ArrayCreationExpressionSyntax[0],
+            new AssignmentExpressionSyntax[0],
+            new BinaryExpressionSyntax[0],
+            new BlockExpressionSyntax[0],
+            new CallExpressionSyntax[0],
+            new ForExpressionSyntax[0],
+            new GroupExpressionSyntax[0],
+            new IdentifierNameSyntax[0],
+            new IfExpressionSyntax[0],
+            new IndexExpressionSyntax[0],
+            new LiteralExpressionSyntax[0],
+            new MemberAccessExpressionSyntax[] { expr },
+            new NewExpressionSyntax[0],
+            new UnaryExpressionSyntax[0],
+            new UnitExpressionSyntax[0],
+            new WhileExpressionSyntax[0]
+        )
+    }
+
+    def parse_infix_expression(left: ExpressionSyntax, in_group: bool, precedence: int): ExpressionSyntax = {
+        debug_print("parse_infix_expression")
+        val kind = current_kind()
+        if (is_terminating_line(in_group, left)) {
+            left
+        } else if (precedence >= current_precedence()) {
+            // println("terminating expression due to operator precedence. kind: " + SyntaxFacts.get_kind_name(kind) + ", current: " + string(current_precedence()) + ", precedence: " + string(precedence))
+            left
+        } else {
+            val expr =
+                if (kind == SyntaxKind.OpenParenToken) {
+                    parse_call_expression(left)
+                } else if (kind == SyntaxKind.AmpersandAmpersandToken ||
+                    kind == SyntaxKind.AmpersandToken ||
+                    kind == SyntaxKind.BangEqualsToken ||
+                    kind == SyntaxKind.CaretToken ||
+                    kind == SyntaxKind.DashToken ||
+                    kind == SyntaxKind.EqualsEqualsToken ||
+                    kind == SyntaxKind.GreaterThanEqualsToken ||
+                    kind == SyntaxKind.GreaterThanToken ||
+                    kind == SyntaxKind.LessThanEqualsToken ||
+                    kind == SyntaxKind.LessThanToken ||
+                    kind == SyntaxKind.PipePipeToken ||
+                    kind == SyntaxKind.PipeToken ||
+                    kind == SyntaxKind.PlusToken ||
+                    kind == SyntaxKind.SlashToken ||
+                    kind == SyntaxKind.StarToken) {
+                    parse_binary_expression(left)
+                } else if (kind == SyntaxKind.DotToken) {
+                    parse_member_access_expression(left)
+                } else {
+                    todo("infix")
+                    left
+                }
+            parse_infix_expression(expr, in_group, precedence)
+        }
+    }
+
+    def todo(note: string): unit = {
+        val curr = current()
+        AstPrinter.print_token(curr)
+        panic(note + ": " + SyntaxFacts.get_kind_name(curr.kind))
+    }
+
+    def parse_function_body(): Array<FunctionBodySyntax> = {
+        debug_print("parse_function_body")
+        if (current_kind() == SyntaxKind.EqualsToken) {
+            val equal = accept()
+            val expr = parse_expression(OperatorPrecedence.Lowest)
+            new FunctionBodySyntax[] {
+                new FunctionBodySyntax(equal, expr)
+            }
+        } else {
+            new FunctionBodySyntax[0]
+        }
+    }
+
+    def parse_function_declaration(): MemberSyntax = {
+        debug_print("parse_function_declaration")
+        val defKeyword = accept()
+        val identifier = accept(SyntaxKind.IdentifierToken)
+        val openParenToken = accept(SyntaxKind.OpenParenToken)
+        val parameters = parse_parameter_list()
+        val closeParenToken = accept(SyntaxKind.CloseParenToken)
+        val typeAnnotation = parse_optional_type_annotation()
+        val body = parse_function_body()
+
+
+        val function = new FunctionDeclarationSyntax(
+            defKeyword,
+            identifier,
+            openParenToken,
+            parameters,
+            closeParenToken,
+            typeAnnotation,
+            body
+        )
+        new MemberSyntax(
+            SyntaxKind.FunctionDeclaration,
+            new ObjectDeclarationSyntax[0],
+            new ClassDeclarationSyntax[0],
+            new FunctionDeclarationSyntax[] { function },
+            new GlobalStatementSyntax[0]
+        )
+    }
+
+    def parse_break_statement(): StatementSyntax = {
+        todo("parse_break_statement")
+        new StatementSyntax(
+            SyntaxKind.BreakStatement,
+            new VariableDeclarationStatementSyntax[0],
+            new BreakStatementSyntax[0],
+            new ContinueStatementSyntax[0],
+            new ExpressionStatementSyntax[0]
+        )
+    }
+
+    def parse_continue_statement(): StatementSyntax = {
+        todo("parse_continue_statement")
+        new StatementSyntax(
+            SyntaxKind.ContinueStatement,
+            new VariableDeclarationStatementSyntax[0],
+            new BreakStatementSyntax[0],
+            new ContinueStatementSyntax[0],
+            new ExpressionStatementSyntax[0]
+        )
+    }
+
+    def parse_expression_statement(): StatementSyntax = {
+        debug_print("parse_expression_statement")
+        val expr = parse_expression(OperatorPrecedence.Lowest)
+        // assert_statement_terminator(expr)
+        new StatementSyntax(
+            SyntaxKind.ExpressionStatement,
+            new VariableDeclarationStatementSyntax[0],
+            new BreakStatementSyntax[0],
+            new ContinueStatementSyntax[0],
+            new ExpressionStatementSyntax[] { new ExpressionStatementSyntax(expr) }
+        )
+    }
+
+    def parse_variable_declaration_statement(): StatementSyntax = {
+        debug_print("parse_variable_declaration_statement")
+        val keyword = accept()
+        val ident = accept(SyntaxKind.IdentifierToken)
+        val typeAnnotation = parse_optional_type_annotation()
+        val eq = accept(SyntaxKind.EqualsToken)
+        val expr = parse_expression(OperatorPrecedence.Lowest)
+
+        val decl = new VariableDeclarationStatementSyntax(
+            keyword,
+            ident,
+            typeAnnotation,
+            eq,
+            expr
+        )
+
+        new StatementSyntax(
+            SyntaxKind.VariableDeclarationStatement,
+            new VariableDeclarationStatementSyntax[] { decl },
+            new BreakStatementSyntax[0],
+            new ContinueStatementSyntax[0],
+            new ExpressionStatementSyntax[0]
+        )
+    }
+
+
+    def parse_statement(): StatementSyntax = {
+        debug_print("parse_statement")
+        val kind = current_kind()
+        if (kind == SyntaxKind.ValKeyword || kind == SyntaxKind.VarKeyword) {
+            parse_variable_declaration_statement()
+        } else if (kind == SyntaxKind.BreakKeyword) {
+            parse_break_statement()
+        } else if (kind == SyntaxKind.ContinueKeyword) {
+            parse_continue_statement()
+        } else {
+            parse_expression_statement()
+        }
+    }
+
+    def parse_global_statement(): GlobalStatementSyntax = {
+        debug_print("parse_global_statement")
+        new GlobalStatementSyntax(parse_statement())
+    }
+
+    def parse_global_statement_member(): MemberSyntax = {
+        debug_print("parse_global_statement_member")
+        val stmt = parse_global_statement()
+        new MemberSyntax(
+            SyntaxKind.GlobalStatement,
+            new ObjectDeclarationSyntax[0],
+            new ClassDeclarationSyntax[0],
+            new FunctionDeclarationSyntax[0],
+            new GlobalStatementSyntax[] {
+                stmt
+            }
+        )
+    }
+
+    def parse_member(): MemberSyntax = {
+        debug_print("parse_member")
+        val kind = current_kind()
+        if (kind == SyntaxKind.ObjectKeyword) {
+            parse_object_declaration()
+        } else if (kind == SyntaxKind.ClassKeyword) {
+            parse_class_declaration()
+        } else if (kind == SyntaxKind.DefKeyword) {
+            parse_function_declaration()
+        } else {
+            parse_global_statement_member()
+        }
+    }
+
+    def parse_members(): Array<MemberSyntax> = {
+        debug_print("parse_members")
+        var size = 0
+        // TODO: support resizing
+        val members = new MemberSyntax[10]
+
+        while (current_kind() != SyntaxKind.EndOfInputToken && current_kind() != SyntaxKind.CloseBraceToken) {
+            members[size] = parse_member()
+            size = size + 1
+        }
+
+        var result = new MemberSyntax[size]
+        for (i <- 0 to size) {
+            result[i] = members[i]
+        }
+        result
     }
 
     def parse_compilation_unit(): CompilationUnitSyntax = {
+        debug_print("parse_compilation_unit")
         val namespaceDeclaration = parse_namespace_declaration()
         val usingDirectives = parse_usings()
         val members = parse_members()
