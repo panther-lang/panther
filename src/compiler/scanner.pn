@@ -1,21 +1,32 @@
-using System
-using System.IO
+class Diagnostic(location: TextLocation, message: string) {
+    def to_string(): string = {
+        val span = location.span
+        val text = location.source_file
+        val file_name = location.file_name
+        val start_line = location.start_line + 1
+        val start_character = location.start_character + 1
 
-class Diagnostic(span: TextSpan, message: string)
+        file_name +
+            "(" + string(start_line) + "," + string(start_character) + "): " +
+            message
+    }
+}
+
 class DiagnosticBag() {
     var _size = 0
     var _items: Array<Diagnostic> = new Diagnostic[0]
 
-    def report(span: TextSpan, message: string): unit = add(new Diagnostic(span, message))
+    def report(location: TextLocation, message: string): unit = add(new Diagnostic(location, message))
 
-    def report_bad_character(span: TextSpan, value: char) = report(span, "Invalid character in input: " + string(value))
-    def report_empty_char_literal(span: TextSpan) = report(span, "Empty character literal")
-    def report_unterminated_block_comment(span: TextSpan) = report(span, "Unterminated block comment")
-    def report_unterminated_char(span: TextSpan) = report(span, "Unterminated character literal")
-    def report_unterminated_string(span: TextSpan) = report(span, "Unterminated string literal")
-    def report_unexpected_token(span: TextSpan, currentKind: int, expectedKind: int) =
-        report(span, "Unexpected token " + SyntaxFacts.get_kind_name(currentKind) + ", expected " + SyntaxFacts.get_kind_name(expectedKind))
-
+    def report_bad_character(location: TextLocation, value: char) = report(location, "Invalid character in input: " + string(value))
+    def report_empty_char_literal(location: TextLocation) = report(location, "Empty character literal")
+    def report_unterminated_block_comment(location: TextLocation) = report(location, "Unterminated block comment")
+    def report_unterminated_char(location: TextLocation) = report(location, "Unterminated character literal")
+    def report_unterminated_string(location: TextLocation) = report(location, "Unterminated string literal")
+    def report_unexpected_token(location: TextLocation, currentKind: int, expectedKind: int) =
+        report(location, "Unexpected token " + SyntaxFacts.get_kind_name(currentKind) + ", expected " + SyntaxFacts.get_kind_name(expectedKind))
+    def report_invalid_escape_sequence(location: TextLocation, current: char) =
+        report(location, "Invalid character in escape sequence: " + string(current))
 
     def ensure_capacity(count: int): unit = {
         if (_size + count >= _items.Length) {
@@ -53,11 +64,11 @@ object MakeResult {
     def success(value: any) = new Result(true, value)
 }
 
-class Scanner(text: string, diagnostics: DiagnosticBag) {
+class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
     var _position: int = 0
     var debug = false
 
-    def peek(position: int): char = if (position >= text.Length) { '\0' } else { text[position] }
+    def peek(position: int): char = source_file.get(position)
 
     def current(): char = peek(_position)
     def lookahead(): char = peek(_position + 1)
@@ -92,12 +103,33 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
 
     def is_invalid_token_trivia(c: char): bool = c != '\0' && !is_start_token(c) && !is_digit(c) && !is_ident_start(c)
 
+    def hex_value(): int = {
+        val curr = current()
+        if (curr == '0') 0
+        else if (curr == '1') 1
+        else if (curr == '2') 2
+        else if (curr == '3') 3
+        else if (curr == '4') 4
+        else if (curr == '5') 5
+        else if (curr == '6') 6
+        else if (curr == '7') 7
+        else if (curr == '8') 8
+        else if (curr == '9') 9
+        else if (curr == 'a' || curr == 'A') 10
+        else if (curr == 'b' || curr == 'B') 11
+        else if (curr == 'c' || curr == 'C') 12
+        else if (curr == 'd' || curr == 'D') 13
+        else if (curr == 'e' || curr == 'E') 14
+        else if (curr == 'f' || curr == 'F') 15
+        else -1
+    }
+
     def scan() : SyntaxToken = {
         val leading = scan_trivia(true)
         val token = scan_simple_token()
         val trailing = scan_trivia(true)
 
-        new SyntaxToken(token.kind, token.start, token.value, leading, trailing)
+        new SyntaxToken(source_file, token.kind, token.start, token.value, leading, trailing)
     }
 
     def scan_simple_token(): SimpleToken = {
@@ -171,8 +203,10 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
     }
 
     def scan_invalid_token(): SimpleToken = {
-        diagnostics.report_bad_character(new TextSpan(_position, 0), current())
-        new SimpleToken(SyntaxKind.InvalidTokenTrivia, _position, "")
+        diagnostics.report_bad_character(new TextLocation(source_file, new TextSpan(_position, 0)), current())
+        val token = new SimpleToken(SyntaxKind.InvalidTokenTrivia, _position, "")
+        next()
+        token
     }
 
     def scan_escape_sequence(): Result = {
@@ -182,13 +216,13 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
         if (curr == '\'') {
             next()
             MakeResult.success("\'")
-        } else if (curr == '\r') {
+        } else if (curr == 'r') {
             next()
             MakeResult.success("\r")
-        } else if (curr == '\n') {
+        } else if (curr == 'n') {
             next()
             MakeResult.success("\n")
-        } else if (curr == '\t') {
+        } else if (curr == 't') {
             next()
             MakeResult.success("\t")
         } else if (curr == '\\') {
@@ -200,11 +234,39 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
         } else if (curr == '0') {
             next()
             MakeResult.success("\0")
-        // TODO: unicode escape characters
-        // } else if (curr == 'u') {
-        // } else if (curr == 'U') {
+        } else if (curr == 'u') {
+            next()
+            scan_utf_escape_sequence(4, start)
+        } else if (curr == 'U') {
+            next()
+            scan_utf_escape_sequence(8, start)
         } else {
+            println("scan error - unexpected escape char: " + string(curr))
+
             MakeResult.fail
+        }
+    }
+
+    def scan_utf_escape_sequence(digits: int, start: int): Result =
+        scan_utf_escape_sequence(digits, start, 0)
+
+    def scan_utf_escape_sequence(digits: int, start: int, value: int): Result = {
+        if (digits > 0) {
+            val hexValue = hex_value()
+            if (hexValue == -1) {
+                // TODO: could throw if we are at EOF
+                diagnostics.report_invalid_escape_sequence(new TextLocation(source_file, new TextSpan(start, _position)), current())
+                MakeResult.fail
+            } else {
+                next() // consume the hex digit
+                // TODO: support shifts
+                // scan_utf_escape_sequence(digits - 1, start, value + (hexValue << (4 * (digits - 1))))
+                // TODO: support exponents
+                // scan_utf_escape_sequence(digits - 1, start, value + hexValue * (2 ^ 4 * (digits - 1)))
+                scan_utf_escape_sequence(digits - 1, start, value + hexValue * Math.pow(2, 4 * (digits - 1)))
+            }
+        } else {
+            MakeResult.success(string(char(value)))
         }
     }
 
@@ -226,7 +288,7 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
                 }
                 continue
             } else if (curr == '\r' || curr == '\n' || curr == '\0') {
-                diagnostics.report_unterminated_string(new TextSpan(start, 1))
+                diagnostics.report_unterminated_string(new TextLocation(source_file, new TextSpan(start, 1)))
                 break
             } else {
                 value = value + string(curr)
@@ -237,7 +299,7 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
             break
         }
 
-        val span = text.Substring(start, _position - start)
+        val span = source_file.to_string(start, _position - start)
         // TODO: save value
         new SimpleToken(SyntaxKind.StringToken, start, span)
     }
@@ -248,13 +310,12 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
         
         val curr = current()
         val value = if (curr == '\r' || curr == '\n' || curr == '\0') {
-            diagnostics.report_unterminated_char(new TextSpan(start, 1))
+            diagnostics.report_unterminated_char(new TextLocation(source_file, new TextSpan(start, 1)))
             MakeResult.fail
         } else if (curr == '\'') {
-            diagnostics.report_empty_char_literal(new TextSpan(start, 2))
+            diagnostics.report_empty_char_literal(new TextLocation(source_file, new TextSpan(start, 2)))
             MakeResult.fail
         } else if (curr == '\\') {
-            // TODO: escape sequence
             val result = scan_escape_sequence()
             if (result.is_success) MakeResult.success(string(result.value)[0])
             else result
@@ -266,10 +327,10 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
         if (current() == '\'') {
             next() // close '
         } else {
-            diagnostics.report_unterminated_char(new TextSpan(start, 1))
+            diagnostics.report_unterminated_char(new TextLocation(source_file, new TextSpan(start, 1)))
         }
 
-        val span = text.Substring(start, _position - start)
+        val span = source_file.to_string(start, _position - start)
         
         // TODO: save value
         new SimpleToken(SyntaxKind.CharToken, start, span)
@@ -281,21 +342,21 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
         while (is_digit(current())) {
             next()
         }
-        val span = text.Substring(start, _position - start)
+        val span = source_file.to_string(start, _position - start)
 
         new SimpleToken(SyntaxKind.NumberToken, start, span)
     }
 
     def scan_simple_one(kind: int): SimpleToken = {
         val start = _position
-        val span = text.Substring(_position, 1)
+        val span = source_file.to_string(_position, 1)
         next()
         new SimpleToken(kind, start, span)
     }
 
     def scan_simple_two(kind: int): SimpleToken = {
         val start = _position
-        val span = text.Substring(_position, 2)
+        val span = source_file.to_string(_position, 2)
         next()
         next()
         new SimpleToken(kind, start, span)
@@ -307,7 +368,7 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
         while (is_ident(current())) {
             next()
         }
-        val span = text.Substring(start, _position - start)
+        val span = source_file.to_string(start, _position - start)
         val kind = SyntaxFacts.get_keyword_kind(span)
 
         new SimpleToken(kind, start, span)
@@ -360,7 +421,7 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
             next()
         }
 
-        val span = text.Substring(start, _position - start)
+        val span = source_file.to_string(start, _position - start)
 
         new SyntaxTrivia(SyntaxKind.LineCommentTrivia, start, span)
     }
@@ -375,7 +436,7 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
             val look = lookahead()
 
             if (curr == '\0') {
-                diagnostics.report_unterminated_block_comment(new TextSpan(start, _position - start))
+                diagnostics.report_unterminated_block_comment(new TextLocation(source_file, new TextSpan(start, _position - start)))
                 break
             } else if (curr == '*' && look == '/') {
                 next()
@@ -386,7 +447,7 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
             }
         }
 
-        val span = text.Substring(start, _position - start)
+        val span = source_file.to_string(start, _position - start)
 
         new SyntaxTrivia(SyntaxKind.BlockCommentTrivia, start, span)
     }
@@ -397,7 +458,7 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
         while (is_eol(current())) {
             next()
         }
-        val span = text.Substring(start, _position - start)
+        val span = source_file.to_string(start, _position - start)
 
         new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, start, span)
     }
@@ -408,7 +469,7 @@ class Scanner(text: string, diagnostics: DiagnosticBag) {
         while (is_non_nl_whitespace(current())) {
             next()
         }
-        val span = text.Substring(start, _position - start)
+        val span = source_file.to_string(start, _position - start)
 
         new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, start, span)
     }

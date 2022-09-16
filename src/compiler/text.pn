@@ -1,0 +1,133 @@
+class TextSpan(start: int, length: int) {
+    val end = start + length
+}
+
+object TextSpanFactory {
+    def from_bounds(start: int, end: int) = new TextSpan(start, end - start)
+}
+
+class TextLine(start: int, length: int, length_with_line_breaks: int) {
+    val end = start + length
+    val span = new TextSpan(start, length)
+}
+
+class TextLineList() {
+    var _size = 0
+    var _items: Array<TextLine> = new TextLine[0]
+
+    def ensure_capacity(count: int): unit = {
+        if (_size + count >= _items.Length) {
+            var newItems = new TextLine[(_size + count) * 2]
+            for (i <- 0 to _size) {
+                newItems[i] = _items[i]
+            }
+            _items = newItems
+        } else {
+            ()
+        }
+    }
+
+    def add(line: TextLine): unit = {
+        ensure_capacity(1)
+        _items[_size] = line
+        _size = _size + 1
+    }
+
+    def text_lines(): Array<TextLine> = {
+        var newItems = new TextLine[_size]
+        for (i <- 0 to _size) {
+            newItems[i] = _items[i]
+        }
+        newItems
+    }
+}
+
+object TextLineParser {
+    def parse(content: string): Array<TextLine> = {
+        val list = new TextLineList()
+        var position = 0
+        var lineStart = 0
+
+        while (position < content.Length) {
+            var lineBreakWidth = get_line_break_width(content, position)
+            if (lineBreakWidth == 0) {
+                position = position + 1
+            } else {
+                add_line(list, position, lineStart, lineBreakWidth)
+                position = position + lineBreakWidth
+                lineStart = position
+            }
+        }
+
+        if (position >= lineStart) {
+            add_line(list, position, lineStart, 0)
+        } else {
+
+        }
+
+        list.text_lines()
+    }
+
+    def get_line_break_width(text: string, position: int): int = {
+        val c = text[position]
+        val l = if (position + 1 >= text.Length) '\0' else text[position + 1]
+
+        if (c == '\r' && l == '\n') 2
+        else if (c == '\r' || l == '\n') 1
+        else 0
+    }
+
+    def add_line(list: TextLineList, position: int, lineStart: int, lineBreakWidth: int): unit = {
+        val lineLength = position - lineStart
+        val lineLengthIncludingLineBreak = lineStart + lineBreakWidth
+        val line = new TextLine(lineStart, lineLength, lineLengthIncludingLineBreak)
+        list.add(line)
+    }
+}
+
+class SourceFile(content: string, file_name: string) {
+    val _lines: Array<TextLine> = TextLineParser.parse(content)
+
+    val line_count = _lines.Length
+    val length = content.Length
+
+    def get(position: int): char =
+        if (position >= length) '\0'
+        else content[position]
+
+    def line_to_offset(index: int): int = _lines[index].start
+    def get_line(index: int): TextLine = _lines[index]
+
+    // get the line index from a position
+    def get_line_index(position: int): int =
+        get_line_index(position, 0, line_count - 1)
+
+    def get_line_index(position: int, lower: int, upper: int): int =
+        if (lower <= upper ) {
+            val index = lower + (upper - lower) / 2
+            val mid = _lines[index]
+            val start = mid.start
+            val end = mid.end
+
+            if (position > end) {
+                get_line_index(position, index + 1, upper)
+            } else if (position < start) {
+                get_line_index(position, lower, index - 1)
+            } else {
+                index
+            }
+        } else {
+            lower - 1
+        }
+
+    def to_string(span: TextSpan): string = to_string(span.start, span.length)
+    def to_string(start: int, length: int): string = content.Substring(start, length)
+}
+
+class TextLocation(source_file: SourceFile, span: TextSpan) {
+    val file_name = source_file.file_name
+    val start_line = source_file.get_line_index(span.start)
+    val start_character = span.start - source_file.line_to_offset(start_line)
+    val end_line = source_file.get_line_index(span.end)
+    val end_character = span.end - source_file.line_to_offset(end_line)
+}

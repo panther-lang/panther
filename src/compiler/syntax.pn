@@ -31,12 +31,9 @@ class SyntaxTriviaList() {
     }
 }
 
-class TextSpan(start: int, length: int) {
-    val end = start + length
-}
-
-class SyntaxToken(kind: int, start: int, value: string, leading: Array<SyntaxTrivia>, trailing: Array<SyntaxTrivia>) {
+class SyntaxToken(source_file: SourceFile, kind: int, start: int, value: string, leading: Array<SyntaxTrivia>, trailing: Array<SyntaxTrivia>) {
     val span = new TextSpan(start, value.Length)
+    val location = new TextLocation(source_file, span)
 }
 
 class SimpleToken(kind: int, start: int, value: string)

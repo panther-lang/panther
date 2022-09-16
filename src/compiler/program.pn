@@ -4,24 +4,22 @@ using System.IO
 object Program {
     def main(): unit = {
         val args: Array<string> = Environment.GetCommandLineArgs()
-        printLogo()
 
         if(args.Length < 2) {
             printHelp()
         } else {
-            val diagnosticBag = new DiagnosticBag()
-
+            printLogo()
             for (x <- 1 to args.Length) {
                 println("processing " + args[x] + "...")
+                val diagnosticBag = new DiagnosticBag()
                 val contents = File.ReadAllText(args[x])
-                val compilation = new Parser(contents, diagnosticBag).parse_compilation_unit()
+                val file = new SourceFile(contents, args[x])
+                val compilation = new Parser(file, diagnosticBag).parse_compilation_unit()
 
-                
-            }
-
-            val diagnostics = diagnosticBag.diagnostics()
-            for (i <- 0 to diagnostics.Length) {
-                printDiagnostic(diagnostics[i])
+                val diagnostics = diagnosticBag.diagnostics()
+                for (i <- 0 to diagnostics.Length) {
+                    printDiagnostic(diagnostics[i])
+                }
             }
 
         }
@@ -36,7 +34,48 @@ object Program {
         padded
     }
 
-    def printDiagnostic(diagnostic: Diagnostic): unit = println("Error: " + diagnostic.message)
+    def printDiagnostic(diagnostic: Diagnostic): unit = {
+        val location = diagnostic.location
+        val span = location.span
+        val source_file = location.source_file
+
+        println(diagnostic.to_string())
+
+        for (currrent_line <- location.start_line to location.end_line + 1) {
+            val line = source_file.get_line(currrent_line)
+            val start_in_current = source_file.get_line_index(span.start) == currrent_line
+            val end_in_current = source_file.get_line_index(span.end) == currrent_line
+
+            val prefix_end =
+                if (start_in_current) span.start
+                else line.start
+
+            val suffix_start =
+                if (end_in_current) span.end
+                else line.end
+
+            val prefix_span = TextSpanFactory.from_bounds(line.start, prefix_end)
+            val error_span = TextSpanFactory.from_bounds(prefix_end, suffix_start)
+            val suffix_span = TextSpanFactory.from_bounds(suffix_start, line.end)
+
+            val prefix = source_file.to_string(prefix_span)
+            val error = source_file.to_string(error_span)
+            val suffix = source_file.to_string(suffix_span)
+
+            print(prefix)
+            // TODO: support colors
+            print(error)
+            // ....
+            println(suffix)
+
+            for(c <- 0 to (prefix_span.length)) {
+                print('-')
+            }
+            println('^')
+        }
+
+        println()
+    }
 
     def printToken(token: SyntaxToken) = 
         println(pad_right("TOKEN[" + SyntaxFacts.get_kind_name(token.kind) + "," + string(token.start) + "]: ", 36) + "\"" + token.value + "\"")

@@ -31,14 +31,13 @@ class TokenList() {
 }
 
 
-class Parser(text: string, diagnostics: DiagnosticBag) {
+class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
 
     val _tokens: Array<SyntaxToken> = {
-        val scanner = new Scanner(text, diagnostics)
+        val scanner = new Scanner(source_file, diagnostics)
         val tokenList = new TokenList()
         while (true) {
             val token = scanner.scan()
-            printToken(token)
             tokenList.add(token)
 
             if (token.kind == SyntaxKind.EndOfInputToken)
@@ -52,25 +51,11 @@ class Parser(text: string, diagnostics: DiagnosticBag) {
     }
     var _position = 0
 
-    def pad_right(value: string, len: int): string = {
-        var padded = value
-        while (padded.Length < len) {
-            padded = padded + " "
-        }
-
-        padded
-    }
-
-    def printToken(token: SyntaxToken) = 
-        println(pad_right("TOKEN[" + SyntaxFacts.get_kind_name(token.kind) + "," + string(token.start) + "]: ", 36) + "\"" + token.value + "\"")
-
-
     def next(): unit = {
         _position = _position + 1
     }
 
     def current(): SyntaxToken = {
-        println("tokens: " + string(_tokens.Length))
         val len = _tokens.Length
 
         if (_position >= len) _tokens[len - 1]
@@ -88,8 +73,8 @@ class Parser(text: string, diagnostics: DiagnosticBag) {
         if (curr.kind == kind) {
             accept()
         } else {
-            diagnostics.report_unexpected_token(curr.span, curr.kind, kind)
-            new SyntaxToken(kind, curr.start, "", new SyntaxTrivia[0], new SyntaxTrivia[0])
+            diagnostics.report_unexpected_token(curr.location, curr.kind, kind)
+            new SyntaxToken(source_file, kind, curr.start, "", new SyntaxTrivia[0], new SyntaxTrivia[0])
         }
     }
 

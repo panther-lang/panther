@@ -29,6 +29,8 @@
       },
       "args": [
         "./bin/panther.dll",
+        "src/compiler/math.pn",
+        "src/compiler/text.pn",
         "src/compiler/syntax.pn",
         "src/compiler/scanner.pn",
         "src/compiler/ast.pn",
