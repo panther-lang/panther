@@ -1,0 +1,230 @@
+object SymbolKind {
+    val Root = 0 // maps to the SymbolTable
+    val Type = 1 // maps to a specific TypeSymbol
+    val Method = 2 // maps to a specific MethodSymbol (includes parameters)
+
+    val Field = 3
+    val Parameter = 4
+    val Local = 5
+}
+
+/**
+  * Symbols can have 0 or 1 Scope.
+  * Block scopes can have multiple levels of inner scopes
+  * Scopes have hold symbols
+  * Scopes can have child scopes
+  * Scopes have a parent. Either another Scope or a Symbol
+  * For block scopes, another block scope or method will be the parent
+  */
+class Symbol(kind: int, name: string, location: TextLocation) {
+    var _scopes: Array<Scope> = new Scope[0]
+
+    def has_scope(): bool = _scopes.Length > 0
+    def get_scope(): Scope = {
+        if (_scopes.Length > 0) {
+            _scopes[0]
+        } else {
+            val scope = new Scope(MakeScopeParent.symbol(this), name)
+            _scopes = new Scope[] { scope }
+            scope
+        }
+    }
+}
+
+object ScopeKind {
+    val Root = 0 // maps to the SymbolTable
+    val Type = 1 // maps to a specific TypeSymbol
+    val Method = 2 // maps to a specific MethodSymbol (includes parameters)
+    val Block = 3 // maps to the body of a MethodSymbol
+}
+
+class Scope(parent: ScopeParent, note: string) {
+
+    var _symbol_count = 0
+    var _symbols: Array<Symbol> = new Symbol[0]
+
+    var _scope_count = 0
+    var _scopes: Array<Scope> = new Scope[0]
+
+    def open_scope(note: string): Scope = {
+        val scope = new Scope(MakeScopeParent.scope(this), note)
+
+        if (_scope_count + 1 >= _scopes.Length) {
+            var newItems = new Scope[(_scope_count + 1) * 2]
+            for (i <- 0 to _scope_count) {
+                newItems[i] = _scopes[i]
+            }
+            _scopes = newItems
+        } else {
+            ()
+        }
+        _scopes[_scope_count] = scope
+        _scope_count = _scope_count + 1
+        scope
+    }
+
+    def scopes(): Array<Scope> = {
+        var newItems = new Scope[_scope_count]
+        for (i <- 0 to _scope_count) {
+            newItems[i] = _scopes[i]
+        }
+        newItems
+    }
+
+    def add_symbol(symbol: Symbol): Symbol = {
+        if (_symbol_count + 1 >= _symbols.Length) {
+            var newItems = new Symbol[(_symbol_count + 1) * 2]
+            for (i <- 0 to _symbol_count) {
+                newItems[i] = _symbols[i]
+            }
+            _symbols = newItems
+        } else {
+            ()
+        }
+        _symbols[_symbol_count] = symbol
+        _symbol_count = _symbol_count + 1
+        symbol
+    }
+
+    def symbols(): Array<Symbol> = {
+        var newItems = new Symbol[_symbol_count]
+        for (i <- 0 to _symbol_count) {
+            newItems[i] = _symbols[i]
+        }
+        newItems
+    }
+
+    def get_parent_symbol(): Symbol = {
+        if (parent.kind == ScopeParentKind.Symbol) {
+            parent.symbol[0]
+        } else {
+            parent.scope[0].get_parent_symbol()
+        }
+    }
+
+    // returns true if we are not in a type or method
+    def is_global_scope(): bool = get_parent_symbol().kind == SymbolKind.Root
+
+    def get_from_locals(name: string, index: int): SymbolResult = {
+        if (index >= _symbol_count) {
+            MakeSymbolResult.none()
+        } else if (_symbols[index].name == name) {
+            MakeSymbolResult.symbol(_symbols[index])
+        } else {
+            get_from_locals(name, index + 1)
+        }
+    }
+
+    def get(name: string): SymbolResult = {
+        val result = get_from_locals(name, 0)
+        if (result.kind == SymbolResultKind.Symbol) {
+            result
+        } else {
+            parent.get(name)
+        }
+    }
+}
+
+object ScopeParentKind {
+    val Symbol = 0
+    val Scope = 1
+}
+
+class ScopeParent(kind: int, symbol: Array<Symbol>, scope: Array<Scope>) {
+    def get_scope(): Scope = {
+        if (kind == ScopeParentKind.Symbol) {
+            symbol[0].get_scope()
+        } else {
+            scope[0]
+        }
+    }
+
+    def get(name: string): SymbolResult = get_scope().get(name)
+}
+
+object MakeScopeParent {
+    def symbol(value: Symbol): ScopeParent = new ScopeParent(ScopeParentKind.Symbol, new Symbol[] { value }, new Scope[0])
+    def scope(value: Scope): ScopeParent = new ScopeParent(ScopeParentKind.Scope, new Symbol[0], new Scope[] { value })
+}
+
+object SymbolResultKind {
+    val None = 0
+    val Symbol = 1
+}
+
+class SymbolResult(
+    kind: int,
+    symbol: Array<Symbol>
+)
+
+object MakeSymbolResult {
+    def none() = new SymbolResult(SymbolResultKind.None, new Symbol[0])
+    def symbol(value: Symbol) = new SymbolResult(SymbolResultKind.Symbol, new Symbol[] { value })
+}
+
+
+object SymbolTreePrinter {
+    def print_scope(scope: Scope, indent: string, last: bool): unit = {
+        val marker = if (last) "└──" else "├──"
+        print(indent)
+        print(marker)
+        if (scope.note == "") {
+            println("Scope")
+        } else {
+            println("Scope: " + scope.note)
+        }
+
+        val end = if (last) "    " else "│   "
+
+        val childIndent = indent + end
+
+        val symbols = scope.symbols()
+        val scopes = scope.scopes()
+        val num_symbols = symbols.Length
+        val num_scopes = scopes.Length
+
+        if (num_symbols > 0) {
+            for (i <- 0 to (num_symbols - 1)) {
+                print_symbol(symbols[i], childIndent, false)
+            }
+            print_symbol(symbols[num_symbols - 1], childIndent, num_scopes == 0)
+        } else {}
+
+        if (num_scopes > 0) {
+            for (s <- 0 to (num_scopes - 1)) {
+                print_scope(scopes[s], childIndent, false)
+            }
+            print_scope(scopes[num_scopes - 1], childIndent, true)
+        } else {}
+    }
+    def print_symbol(symbol: Symbol): unit = {
+        print_symbol(symbol, "", true)
+    }
+    def print_symbol(symbol: Symbol, indent: string, last: bool): unit = {
+        val marker = if (last) "└──" else "├──"
+        print(indent)
+        print(marker)
+
+        if (symbol.kind == SymbolKind.Root) {
+            print("Root: ")
+        } else if (symbol.kind == SymbolKind.Type) {
+            print("Type: ")
+        } else if (symbol.kind == SymbolKind.Field) {
+            print("Field: ")
+        } else if (symbol.kind == SymbolKind.Method) {
+            print("Method: ")
+        } else if (symbol.kind == SymbolKind.Parameter) {
+            print("Parameter: ")
+        } else {
+            print("Local: ")
+        }
+
+        println(symbol.name)
+
+        val end = if (last) "    " else "│   "
+        val childIndent = indent + end
+        if (symbol.has_scope()) {
+            print_scope(symbol.get_scope(), childIndent, true)
+        } else {}
+    }
+}

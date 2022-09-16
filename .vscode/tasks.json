@@ -37,6 +37,8 @@
         "src/compiler/ast.pn",
         "src/compiler/parser.pn",
         "src/compiler/printer.pn",
+        "src/compiler/symbols.pn",
+        "src/compiler/binder.pn",
         "src/compiler/program.pn "
       ],
       "problemMatcher": "$msvc",

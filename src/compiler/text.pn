@@ -134,3 +134,9 @@ class TextLocation(source_file: SourceFile, span: TextSpan) {
     def to_string(): string =
         file_name + "(" + string(start_line + 1) + "," + string(start_character + 1) + ")"
 }
+
+object TextLocationFactory {
+    def empty(): TextLocation = {
+        new TextLocation(new SourceFile("", ""), new TextSpan(0, 0))
+    }
+}

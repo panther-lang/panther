@@ -9,12 +9,17 @@ object Program {
             printHelp()
         } else {
             printLogo()
+            val root = new Symbol(SymbolKind.Root, "", TextLocationFactory.empty())
+            val root_scope = root.get_scope()
             for (x <- 1 to args.Length) {
                 println("processing " + args[x] + "...")
                 val diagnosticBag = new DiagnosticBag()
                 val contents = File.ReadAllText(args[x])
                 val file = new SourceFile(contents, args[x])
                 val compilation = new Parser(file, diagnosticBag).parse_compilation_unit()
+
+                val binder = new Binder(root_scope, diagnosticBag)
+                binder.bind_compilation_unit(compilation)
 
                 val diagnostics = diagnosticBag.diagnostics()
                 val len = diagnostics.Length
@@ -24,15 +29,17 @@ object Program {
                     }
                 } else {
                     println("parsed " + args[x] + " successfully.")
+
                     if (false) {
                         AstPrinter.print_compilation_unit(compilation)
                         println()
                         println()
                     } else {
-
                     }
                 }
             }
+
+            SymbolTreePrinter.print_symbol(root)
 
         }
     }
