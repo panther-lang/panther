@@ -78,7 +78,7 @@ object Program {
     }
 
     def printToken(token: SyntaxToken) = 
-        println(pad_right("TOKEN[" + SyntaxFacts.get_kind_name(token.kind) + "," + string(token.start) + "]: ", 36) + "\"" + token.value + "\"")
+        println(pad_right("TOKEN[" + SyntaxFacts.get_kind_name(token.kind) + "," + string(token.start) + "]: ", 36) + "\"" + token.text + "\"")
 
     def printLogo() = println("panther - 0.0.1")
     def printHelp() = println("expected source file argument")

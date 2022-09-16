@@ -33,8 +33,25 @@ class SyntaxTriviaList() {
     }
 }
 
-class SyntaxToken(source_file: SourceFile, kind: int, start: int, value: string, leading: Array<SyntaxTrivia>, trailing: Array<SyntaxTrivia>) {
-    val span = new TextSpan(start, value.Length)
+object SyntaxTokenValueKind {
+    val None = 0
+    val Boolean = 1
+    val String = 2
+    val Character = 3
+    val Number = 4
+}
+class SyntaxTokenValue(kind: int, boolValue: Array<bool>, stringValue: Array<string>, characterValue: Array<char>, numberValue: Array<int>)
+
+object MakeSyntaxTokenValue {
+    def none() = new SyntaxTokenValue(SyntaxTokenValueKind.None, new bool[0], new string[0], new char[0], new int[0])
+    def bool(value: bool) = new SyntaxTokenValue(SyntaxTokenValueKind.Boolean, new bool[] { value }, new string[0], new char[0], new int[0])
+    def string(value: string) = new SyntaxTokenValue(SyntaxTokenValueKind.String, new bool[0], new string[] { value }, new char[0], new int[0])
+    def char(value: char) = new SyntaxTokenValue(SyntaxTokenValueKind.Character, new bool[0], new string[0], new char[] { value }, new int[0])
+    def number(value: int) = new SyntaxTokenValue(SyntaxTokenValueKind.Number, new bool[0], new string[0], new char[0], new int[] { value})
+}
+
+class SyntaxToken(source_file: SourceFile, kind: int, start: int, text: string, value: SyntaxTokenValue, leading: Array<SyntaxTrivia>, trailing: Array<SyntaxTrivia>) {
+    val span = new TextSpan(start, text.Length)
     val location = new TextLocation(source_file, span)
 
     def is_statement_terminator(): bool =
@@ -49,7 +66,7 @@ class SyntaxToken(source_file: SourceFile, kind: int, start: int, value: string,
         } else is_statement_terminator(index + 1)
 }
 
-class SimpleToken(kind: int, start: int, value: string)
+class SimpleToken(kind: int, start: int, text: string, value: SyntaxTokenValue)
 
 object SyntaxKind {
     // Special Tokens

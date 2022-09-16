@@ -36,7 +36,11 @@ class NameSyntax(
 class ExpressionItemSyntax(expression: ExpressionSyntax, separatorToken: Array<SyntaxToken>)
 class ExpressionListSyntax(expressions: Array<ExpressionItemSyntax>)
 
-class AssignmentExpressionSyntax()
+class AssignmentExpressionSyntax(
+    left: ExpressionSyntax,
+    equals: SyntaxToken,
+    right: ExpressionSyntax
+)
 class BinaryExpressionSyntax(left: ExpressionSyntax, operator: SyntaxToken, right: ExpressionSyntax)
 class BlockExpressionSyntax(
     openBrace: SyntaxToken,
@@ -45,7 +49,17 @@ class BlockExpressionSyntax(
     closeBrace: SyntaxToken
 )
 class CallExpressionSyntax(name: ExpressionSyntax, openParen: SyntaxToken, arguments: ExpressionListSyntax, closeParen: SyntaxToken)
-class ForExpressionSyntax()
+class ForExpressionSyntax(
+    forKeyword: SyntaxToken,
+    openParen: SyntaxToken,
+    identifier: SyntaxToken,
+    arrow: SyntaxToken,
+    fromExpr: ExpressionSyntax,
+    toKeyword: SyntaxToken,
+    toExpr: ExpressionSyntax,
+    closeParen: SyntaxToken,
+    body: ExpressionSyntax
+)
 class GroupExpressionSyntax(
     openParen: SyntaxToken,
     expression: ExpressionSyntax,
@@ -60,8 +74,13 @@ class IfExpressionSyntax(
     elseKeyword: SyntaxToken,
     elseExpr: ExpressionSyntax
 )
-class IndexExpressionSyntax()
-class LiteralExpressionSyntax(token: SyntaxToken)
+class IndexExpressionSyntax(
+    left: ExpressionSyntax,
+    openBracket: SyntaxToken,
+    index: ExpressionSyntax,
+    closeBracket: SyntaxToken
+)
+class LiteralExpressionSyntax(token: SyntaxToken, value: SyntaxTokenValue)
 class MemberAccessExpressionSyntax(
     left: ExpressionSyntax,
     dotToken: SyntaxToken,
@@ -74,9 +93,15 @@ class NewExpressionSyntax(
     arguments: ExpressionListSyntax,
     closeParen: SyntaxToken
 )
-class UnaryExpressionSyntax()
+class UnaryExpressionSyntax(operator: SyntaxToken, expression: ExpressionSyntax)
 class UnitExpressionSyntax(openParen: SyntaxToken, closeParen: SyntaxToken)
-class WhileExpressionSyntax()
+class WhileExpressionSyntax(
+    whileKeyword: SyntaxToken,
+    openParen: SyntaxToken,
+    left: ExpressionSyntax,
+    closeParen: SyntaxToken,
+    body: ExpressionSyntax
+)
 
 class ExpressionSyntax(
     kind: int,
@@ -153,8 +178,8 @@ class VariableDeclarationStatementSyntax(
     equalToken: SyntaxToken,
     expression: ExpressionSyntax
 )
-class BreakStatementSyntax()
-class ContinueStatementSyntax()
+class BreakStatementSyntax(breakKeyword: SyntaxToken)
+class ContinueStatementSyntax(continueKeyword: SyntaxToken)
 class ExpressionStatementSyntax(expression: ExpressionSyntax)
 
 class StatementSyntax(
@@ -227,7 +252,7 @@ object AstPrinter {
 
     def print_trivia(node: SyntaxTrivia): unit = ()
     def print_token(token: SyntaxToken): unit =
-        println(token.location.to_string() + "[" + SyntaxFacts.get_kind_name(token.kind) + "]: " + "\"" + token.value + "\"")
+        println(token.location.to_string() + "[" + SyntaxFacts.get_kind_name(token.kind) + "]: " + "\"" + token.text + "\"")
 
     def pad_right(value: string, len: int): string = {
         var padded = value

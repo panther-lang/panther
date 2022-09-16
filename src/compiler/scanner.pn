@@ -119,14 +119,14 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
         val token = scan_simple_token()
         val trailing = scan_trivia(true)
 
-        new SyntaxToken(source_file, token.kind, token.start, token.value, leading, trailing)
+        new SyntaxToken(source_file, token.kind, token.start, token.text, token.value, leading, trailing)
     }
 
     def scan_simple_token(): SimpleToken = {
         val curr = current()
         val look = lookahead()
         if (curr == '\0') {
-            new SimpleToken(SyntaxKind.EndOfInputToken, _position, "")
+            new SimpleToken(SyntaxKind.EndOfInputToken, _position, "", MakeSyntaxTokenValue.none())
         } else if (curr == '.') {
             scan_simple_one(SyntaxKind.DotToken)
         } else if (curr == '(') {
@@ -194,7 +194,7 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
 
     def scan_invalid_token(): SimpleToken = {
         diagnostics.report_bad_character(new TextLocation(source_file, new TextSpan(_position, 0)), current())
-        val token = new SimpleToken(SyntaxKind.InvalidTokenTrivia, _position, "")
+        val token = new SimpleToken(SyntaxKind.InvalidTokenTrivia, _position, "", MakeSyntaxTokenValue.none())
         next()
         token
     }
@@ -290,8 +290,8 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
         }
 
         val span = source_file.to_string(start, _position - start)
-        // TODO: save value
-        new SimpleToken(SyntaxKind.StringToken, start, span)
+
+        new SimpleToken(SyntaxKind.StringToken, start, span, MakeSyntaxTokenValue.string(value))
     }
 
     def scan_char(): SimpleToken = {
@@ -301,17 +301,17 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
         val curr = current()
         val value = if (curr == '\r' || curr == '\n' || curr == '\0') {
             diagnostics.report_unterminated_char(new TextLocation(source_file, new TextSpan(start, 1)))
-            MakeResult.fail
+            MakeSyntaxTokenValue.none()
         } else if (curr == '\'') {
             diagnostics.report_empty_char_literal(new TextLocation(source_file, new TextSpan(start, 2)))
-            MakeResult.fail
+            MakeSyntaxTokenValue.none()
         } else if (curr == '\\') {
             val result = scan_escape_sequence()
-            if (result.is_success) MakeResult.success(string(result.value)[0])
-            else result
+            if (result.is_success) MakeSyntaxTokenValue.char(string(result.value)[0])
+            else MakeSyntaxTokenValue.none()
         } else {
             next() // character
-            MakeResult.success(curr)
+            MakeSyntaxTokenValue.char(curr)
         }
 
         if (current() == '\'') {
@@ -321,27 +321,28 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
         }
 
         val span = source_file.to_string(start, _position - start)
-        
-        // TODO: save value
-        new SimpleToken(SyntaxKind.CharToken, start, span)
+
+        new SimpleToken(SyntaxKind.CharToken, start, span, value)
     }
 
     def scan_number(): SimpleToken = {
         val start = _position
+        var value = hex_value()
         next()
         while (is_digit(current())) {
+            value = (value * 10) + hex_value()
             next()
         }
         val span = source_file.to_string(start, _position - start)
 
-        new SimpleToken(SyntaxKind.NumberToken, start, span)
+        new SimpleToken(SyntaxKind.NumberToken, start, span, MakeSyntaxTokenValue.number(value))
     }
 
     def scan_simple_one(kind: int): SimpleToken = {
         val start = _position
         val span = source_file.to_string(_position, 1)
         next()
-        new SimpleToken(kind, start, span)
+        new SimpleToken(kind, start, span, MakeSyntaxTokenValue.none())
     }
 
     def scan_simple_two(kind: int): SimpleToken = {
@@ -349,7 +350,7 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
         val span = source_file.to_string(_position, 2)
         next()
         next()
-        new SimpleToken(kind, start, span)
+        new SimpleToken(kind, start, span, MakeSyntaxTokenValue.none())
     }
 
     def scan_ident(): SimpleToken = {
@@ -361,7 +362,7 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
         val span = source_file.to_string(start, _position - start)
         val kind = SyntaxFacts.get_keyword_kind(span)
 
-        new SimpleToken(kind, start, span)
+        new SimpleToken(kind, start, span, MakeSyntaxTokenValue.none())
     }
 
     def scan_trivia(leading: bool): Array<SyntaxTrivia> = {
@@ -399,7 +400,7 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
 
     def scan_invalid_token_trivia(): SyntaxTrivia = {
         val token = scan_invalid_token()
-        new SyntaxTrivia(token.kind, token.start, token.value)
+        new SyntaxTrivia(token.kind, token.start, token.text)
     }
 
     def scan_line_comment(): SyntaxTrivia = {
