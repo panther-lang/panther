@@ -9,8 +9,6 @@ object Program {
             printHelp()
         } else {
             printLogo()
-            val root = new Symbol(SymbolKind.Root, "", TextLocationFactory.empty())
-            val root_scope = root.get_scope()
             val trees = new SyntaxTree[args.Length - 1]
             for (x <- 1 to args.Length) {
                 println("processing " + args[x] + "...")

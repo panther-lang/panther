@@ -1,8 +1,8 @@
 object MakeCompilation {
     def create(trees: Array<SyntaxTree>): Compilation = {
         val diagnosticBag = new DiagnosticBag()
-        val root = new Symbol(SymbolKind.Root, "", TextLocationFactory.empty())
-        val root_scope = root.get_scope()
+        val root = new Symbol(SymbolKind.Root, "", TextLocationFactory.empty(), new Symbol[0])
+        val root_scope = root.members
 
         var num_diags = 0
         for (x <- 0 to trees.Length) {

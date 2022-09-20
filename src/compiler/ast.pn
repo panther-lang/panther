@@ -221,3 +221,46 @@ class NamespaceDeclarationSyntax(namespaceKeyword: SyntaxToken, name: NameSyntax
 class CompilationUnitSyntax(namespaceDeclaration: Array<NamespaceDeclarationSyntax>, usings: Array<UsingDirectiveSyntax>, members: Array<MemberSyntax>, endToken: SyntaxToken) {
     val kind = SyntaxKind.CompilationUnit
 }
+
+
+object DeclarationKind {
+    val Object = 1
+    val Class = 2
+    val Field = 3
+    val Method = 4
+    val Parameter = 5
+    val Local = 6
+}
+
+class Declaration(
+    kind: int,
+    name: string,
+    location: TextLocation,
+    object_declaration: Array<ObjectDeclarationSyntax>,
+    class_declaration: Array<ClassDeclarationSyntax>,
+    function_declaration: Array<FunctionDeclarationSyntax>,
+    parameter_declaration: Array<ParameterSyntax>,
+    local_declaration: Array<SyntaxToken>
+)
+
+object MakeDeclaration {
+    def obj(node: ObjectDeclarationSyntax): Declaration =
+        new Declaration(DeclarationKind.Object, node.identifier.text, node.identifier.location, new ObjectDeclarationSyntax[] { node }, new ClassDeclarationSyntax[0], new FunctionDeclarationSyntax[0], new ParameterSyntax[0], new SyntaxToken[0])
+
+    def cls(node: ClassDeclarationSyntax): Declaration =
+        new Declaration(DeclarationKind.Class, node.identifier.text, node.identifier.location, new ObjectDeclarationSyntax[0], new ClassDeclarationSyntax[] { node }, new FunctionDeclarationSyntax[0], new ParameterSyntax[0], new SyntaxToken[0])
+
+    def function(node: FunctionDeclarationSyntax): Declaration =
+        new Declaration(DeclarationKind.Method, node.identifier.text, node.identifier.location, new ObjectDeclarationSyntax[0], new ClassDeclarationSyntax[0], new FunctionDeclarationSyntax[] { node }, new ParameterSyntax[0], new SyntaxToken[0])
+
+    def field(node: ParameterSyntax): Declaration =
+        new Declaration(DeclarationKind.Field, node.identifier.text, node.identifier.location, new ObjectDeclarationSyntax[0], new ClassDeclarationSyntax[0], new FunctionDeclarationSyntax[0], new ParameterSyntax[] { node }, new SyntaxToken[0])
+
+    def parameter(node: ParameterSyntax): Declaration =
+        new Declaration(DeclarationKind.Parameter, node.identifier.text, node.identifier.location, new ObjectDeclarationSyntax[0], new ClassDeclarationSyntax[0], new FunctionDeclarationSyntax[0], new ParameterSyntax[] { node }, new SyntaxToken[0])
+
+    def local(node: SyntaxToken): Declaration =
+        new Declaration(DeclarationKind.Local, node.text, node.location, new ObjectDeclarationSyntax[0], new ClassDeclarationSyntax[0], new FunctionDeclarationSyntax[0], new ParameterSyntax[0], new SyntaxToken[] { node })
+
+
+}
