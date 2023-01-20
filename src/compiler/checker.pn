@@ -1,0 +1,194 @@
+object TypeSchemeKind {
+    val Polymorphic = 1
+    val Simple = 2
+}
+
+class TypeScheme(kind: int, polymorphic: Array<PolymorphicType>, simple: Array<SimpleType>)
+
+class PolymorphicType(body: SimpleType)
+
+object SimpleTypeKind {
+    val Variable = 1
+    val Concrete = 2
+}
+class SimpleType(kind: int, variable: Array<Variable>, concrete: Array<ConcreteType>)
+
+object ConcreteTypeKind {
+    val Any = 1 // Top
+    val Nothing = 2 // Bottom
+    val Function = 3
+    val Record = 4
+    val Primitive = 5
+}
+
+class ConcreteType(
+    kind: int,
+    function: Array<Function>,
+    record: Array<Record>,
+    primitive: Array<Primitive>,
+    variable: Array<Variable>
+)
+
+class Function(lhs: SimpleType, rhs: SimpleType)
+class RecordField(name: string, type: SimpleType)
+class Record(fields: Array<RecordField>)
+class Primitive(name: string)
+class Variable(lower: ConcreteType, upper: ConcreteType)
+
+// Any is Top (super type of all types)
+// Nothing is Bottom (sub type of all types)
+
+// https://github.com/LPTK/simpler-sub/blob/simpler-sub/shared/src/main/scala/simplesub/Typer.scala
+
+// ∩ == intersection
+// ∪ == union
+//
+// https://www.youtube.com/watch?v=d10q-b8jNKg
+// x gets type variable A
+// y gets type variable B
+
+// union of branches gets type variable C
+
+// constraint: A <= int
+// constraint: B <= int
+// constraint: A, B <= C
+
+// f: A -> B -> C where A <= int, B <= int, A ∪ B <= C
+// then (coalesce bounds)
+// f: A ∩ int -> B ∩ int -> A ∪ B ∪ C
+// then simplify variables
+// f: A ∩ int -> A ∩ int -> A
+
+class SymbolLinks() {
+    var _type: Array<Type> = new Type[0]
+
+    def set_type(typ: Type): unit = {
+        _type = new Type[] { typ }
+    }
+
+    def has_type(): bool = _type.Length == 0
+    def get_type(): Type = _type[0]
+}
+
+// will be connected to a Declaration or an Expression
+class NodeLinks() {
+    var _type: Array<Type> = new Type[0]
+
+    def set_type(typ: Type): unit = {
+        _type = new Type[] { typ }
+    }
+
+    def has_type(): bool = _type.Length == 0
+    def get_type(): Type = _type[0]
+}
+
+class Checker() {
+
+    val BoolType: Primitive = new Primitive("bool")
+    val CharType: Primitive = new Primitive("char")
+    val IntType: Primitive = new Primitive("int")
+    val StringType: Primitive = new Primitive("string")
+    val UnitType: Primitive = new Primitive("unit")
+
+    val Any = new ConcreteType(
+        ConcreteTypeKind.Any,
+        new Function[0],
+        new Record[0],
+        new Primitive[0],
+        new Variable[0]
+    )
+
+    val Nothing = new ConcreteType(
+        ConcreteTypeKind.Nothing,
+        new Function[0],
+        new Record[0],
+        new Primitive[0],
+        new Variable[0]
+    )
+
+    var last_symbol_id = 0
+    var symbol_links = new SymbolLinks[10]
+    var last_node_id = 0
+    var node_links = new NodeLinks[10]
+
+    def fresh_var(): Variable = new Variable(Nothing, Any)
+
+    def get_type_of_symbol(symbol: Symbol): Type = {
+        if (symbol.kind == SymbolKind.Class) {
+            get_type_of_class_symbol(symbol)
+        } else if (symbol.kind == SymbolKind.Method) {
+            get_type_of_method_symbol(symbol)
+        } else if (symbol.kind == SymbolKind.Field) {
+            get_type_of_field_symbol(symbol)
+        } else if (symbol.kind == SymbolKind.Parameter) {
+            get_type_of_parameter_symbol(symbol)
+        } else { // Local
+            get_type_of_local_symbol(symbol)
+        }
+    }
+
+    def get_type_of_node(node: Node): Type = {
+        if (node.is_decl()) {
+            get_type_of_declaration(node.declaration[0])
+        } else {
+            get_type_of_expression(node.expression[0])
+        }
+    }
+
+    def get_type_of_declaration(decl: Declaration): Type = {}
+    def get_type_of_expression(decl: ExpressionSyntax): Type = {}
+    def get_type_of_class_symbol(symbol: Symbol): Type = {}
+    def get_type_of_method_symbol(symbol: Symbol): Type = {}
+    def get_type_of_field_symbol(symbol: Symbol): Type = {}
+    def get_type_of_parameter_symbol(symbol: Symbol): Type = {}
+    def get_type_of_local_symbol(symbol: Symbol): Type = {}
+
+
+    def get_node_id(node: Node): int = {
+        if (node.id() != -1) {
+            node.id()
+        } else {
+            if (last_node_id + 1 >= node_links.Length) {
+                var newItems = new NodeLinks[(last_node_id + 1) * 2]
+                for (i <- 0 to last_node_id) {
+                    newItems[i] = node_links[i]
+                }
+                node_links = newItems
+            } else { }
+
+            node_links[last_node_id] = new NodeLinks()
+            node.set_id(last_node_id)
+            last_node_id = last_node_id + 1
+            node.id()
+        }
+    }
+
+    def get_node_links(node: Node): NodeLinks = {
+        val id = get_node_id(node)
+        node_links[id]
+    }
+
+    def get_symbol_id(symbol: Symbol): int = {
+        if (symbol.id != -1) {
+            symbol.id
+        } else {
+            if (last_symbol_id + 1 >= symbol_links.Length) {
+                var newItems = new SymbolLinks[(last_symbol_id + 1) * 2]
+                for (i <- 0 to last_symbol_id) {
+                    newItems[i] = symbol_links[i]
+                }
+                symbol_links = newItems
+            } else { }
+
+            symbol_links[last_symbol_id] = new SymbolLinks()
+            symbol.id = last_symbol_id
+            last_symbol_id = last_symbol_id + 1
+            symbol.id
+        }
+    }
+
+    def get_symbol_links(symbol: Symbol): SymbolLinks = {
+        val id = get_symbol_id(symbol)
+        symbol_links[id]
+    }
+}

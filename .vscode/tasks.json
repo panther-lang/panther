@@ -39,6 +39,8 @@
         "src/compiler/printer.pn",
         "src/compiler/symbols.pn",
         "src/compiler/binder.pn",
+        "src/compiler/types.pn",
+        "src/compiler/checker.pn",
         "src/compiler/compilation.pn",
         "src/compiler/program.pn "
       ],

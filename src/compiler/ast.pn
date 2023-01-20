@@ -129,7 +129,9 @@ class ExpressionSyntax(
     unaryExpression: Array<UnaryExpressionSyntax>,
     unitExpression: Array<UnitExpressionSyntax>,
     whileExpression: Array<WhileExpressionSyntax>
-)
+) {
+    var id = -1 // used in type checker
+}
 
 class FunctionBodySyntax(equalToken: SyntaxToken, expression: ExpressionSyntax)
 class ParameterSyntax(
@@ -217,6 +219,7 @@ class NamespaceDeclarationSyntax(namespaceKeyword: SyntaxToken, name: NameSyntax
 /**
     namespaceDeclaration [0..1]
     usings [0..n]
+    members [0..n]
 */
 class CompilationUnitSyntax(namespaceDeclaration: Array<NamespaceDeclarationSyntax>, usings: Array<UsingDirectiveSyntax>, members: Array<MemberSyntax>, endToken: SyntaxToken) {
     val kind = SyntaxKind.CompilationUnit
@@ -230,8 +233,13 @@ object DeclarationKind {
     val Method = 4
     val Parameter = 5
     val Local = 6
+    val Token = 7
 }
 
+// A declaration is any syntax that defines a binding, the type of the
+// symbol will not always match the declarations.
+// For example, a constructor symbol will usually have a Class declaration
+// and field symbols can either be Local declarations or Parameter declarations
 class Declaration(
     kind: int,
     name: string,
@@ -240,27 +248,115 @@ class Declaration(
     class_declaration: Array<ClassDeclarationSyntax>,
     function_declaration: Array<FunctionDeclarationSyntax>,
     parameter_declaration: Array<ParameterSyntax>,
-    local_declaration: Array<SyntaxToken>
-)
+    local_declaration: Array<VariableDeclarationStatementSyntax>,
+    token_declaration: Array<SyntaxToken>
+) {
+    var id = -1 // used in type checker
+}
 
 object MakeDeclaration {
     def obj(node: ObjectDeclarationSyntax): Declaration =
-        new Declaration(DeclarationKind.Object, node.identifier.text, node.identifier.location, new ObjectDeclarationSyntax[] { node }, new ClassDeclarationSyntax[0], new FunctionDeclarationSyntax[0], new ParameterSyntax[0], new SyntaxToken[0])
+        new Declaration(
+            DeclarationKind.Object,
+            node.identifier.text,
+            node.identifier.location,
+            new ObjectDeclarationSyntax[] { node },
+            new ClassDeclarationSyntax[0],
+            new FunctionDeclarationSyntax[0],
+            new ParameterSyntax[0],
+            new VariableDeclarationStatementSyntax[0],
+            new SyntaxToken[0]
+        )
 
     def cls(node: ClassDeclarationSyntax): Declaration =
-        new Declaration(DeclarationKind.Class, node.identifier.text, node.identifier.location, new ObjectDeclarationSyntax[0], new ClassDeclarationSyntax[] { node }, new FunctionDeclarationSyntax[0], new ParameterSyntax[0], new SyntaxToken[0])
+        new Declaration(
+            DeclarationKind.Class,
+            node.identifier.text,
+            node.identifier.location,
+            new ObjectDeclarationSyntax[0],
+            new ClassDeclarationSyntax[] { node },
+            new FunctionDeclarationSyntax[0],
+            new ParameterSyntax[0],
+            new VariableDeclarationStatementSyntax[0],
+            new SyntaxToken[0]
+        )
 
     def function(node: FunctionDeclarationSyntax): Declaration =
-        new Declaration(DeclarationKind.Method, node.identifier.text, node.identifier.location, new ObjectDeclarationSyntax[0], new ClassDeclarationSyntax[0], new FunctionDeclarationSyntax[] { node }, new ParameterSyntax[0], new SyntaxToken[0])
-
-    def field(node: ParameterSyntax): Declaration =
-        new Declaration(DeclarationKind.Field, node.identifier.text, node.identifier.location, new ObjectDeclarationSyntax[0], new ClassDeclarationSyntax[0], new FunctionDeclarationSyntax[0], new ParameterSyntax[] { node }, new SyntaxToken[0])
+        new Declaration(
+            DeclarationKind.Method,
+            node.identifier.text,
+            node.identifier.location,
+            new ObjectDeclarationSyntax[0],
+            new ClassDeclarationSyntax[0],
+            new FunctionDeclarationSyntax[] { node },
+            new ParameterSyntax[0],
+            new VariableDeclarationStatementSyntax[0],
+            new SyntaxToken[0]
+        )
 
     def parameter(node: ParameterSyntax): Declaration =
-        new Declaration(DeclarationKind.Parameter, node.identifier.text, node.identifier.location, new ObjectDeclarationSyntax[0], new ClassDeclarationSyntax[0], new FunctionDeclarationSyntax[0], new ParameterSyntax[] { node }, new SyntaxToken[0])
+        new Declaration(
+            DeclarationKind.Parameter,
+            node.identifier.text,
+            node.identifier.location,
+            new ObjectDeclarationSyntax[0],
+            new ClassDeclarationSyntax[0],
+            new FunctionDeclarationSyntax[0],
+            new ParameterSyntax[] { node },
+            new VariableDeclarationStatementSyntax[0],
+            new SyntaxToken[0]
+        )
 
-    def local(node: SyntaxToken): Declaration =
-        new Declaration(DeclarationKind.Local, node.text, node.location, new ObjectDeclarationSyntax[0], new ClassDeclarationSyntax[0], new FunctionDeclarationSyntax[0], new ParameterSyntax[0], new SyntaxToken[] { node })
+    def local(node: VariableDeclarationStatementSyntax): Declaration =
+        new Declaration(
+            DeclarationKind.Local,
+            node.identifier.text,
+            node.identifier.location,
+            new ObjectDeclarationSyntax[0],
+            new ClassDeclarationSyntax[0],
+            new FunctionDeclarationSyntax[0],
+            new ParameterSyntax[0],
+            new VariableDeclarationStatementSyntax[] { node },
+            new SyntaxToken[0]
+        )
+
+    def token(node: SyntaxToken): Declaration =
+        new Declaration(
+            DeclarationKind.Local,
+            node.text,
+            node.location,
+            new ObjectDeclarationSyntax[0],
+            new ClassDeclarationSyntax[0],
+            new FunctionDeclarationSyntax[0],
+            new ParameterSyntax[0],
+            new VariableDeclarationStatementSyntax[0],
+            new SyntaxToken[] { node }
+        )
+}
 
 
+// A Node represents any piece of the AST
+class Node(
+    declaration: Array<Declaration>,
+    expression: Array<ExpressionSyntax>
+) {
+
+    def is_decl(): bool = declaration.Length > 0
+
+    def id(): int =
+        if (is_decl()) declaration[0].id
+        else expression[0].id
+
+    def set_id(value: int): unit = {
+        if (is_decl()) {
+            declaration[0].id = value
+        } else {
+            expression[0].id = value
+        }
+    }
+}
+
+object MakeNode {
+    def decl(declaration: Declaration): Node = new Node(new Declaration[] { declaration }, new ExpressionSyntax[0])
+    def expr(expression: ExpressionSyntax): Node = new Node(new Declaration[0], new ExpressionSyntax[] { expression })
 }

@@ -1,0 +1,32 @@
+/**
+ *
+ */
+
+class Type(
+    kind: int,
+    union: Array<UnionType>,
+    intersection: Array<IntersectionType>,
+    primitive: Array<PrimitiveType>,
+    typeVariable: Array<TypeVariable>,
+    function: Array<FunctionType>,
+    record: Array<RecordType>
+)
+
+object TypeKind {
+    val Any = 1
+    val Nothing = 2
+    val Union = 3
+    val Intersection = 4
+    val Primitive = 5
+    val TypeVariable = 6
+    val Function = 7
+    val Record = 8
+}
+
+class UnionType(left: Type, right: Type)
+class IntersectionType(left: Type, right: Type)
+class PrimitiveType(name: string)
+class TypeVariable(name: string, hash: int)
+class FunctionType(lhs: Type, rhs: Type)
+class RecordType(fields: Array<RecordTypeField>)
+    class RecordTypeField(name: string, type: Type)

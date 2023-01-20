@@ -32,12 +32,13 @@ object MakeScopeParent {
 
 object SymbolKind {
     val Root = 0 // maps to the SymbolTable
-    val Type = 1 // maps to a specific TypeSymbol
+    val Class = 1 // maps to a specific TypeSymbol
     val Method = 2 // maps to a specific MethodSymbol (includes parameters)
+    val Constructor = 3
 
-    val Field = 3
-    val Parameter = 4
-    val Local = 5
+    val Field = 4
+    val Parameter = 5
+    val Local = 6
 }
 
 object ScopeKind {
@@ -147,11 +148,14 @@ class Scope(parent: ScopeParent, note: string) {
 class Symbol(kind: int, name: string, location: TextLocation, _parent: Array<Symbol>) {
     var _declarations: Array<Declaration> = new Declaration[0]
     var _declaration_count = 0
+    var id = -1
 
     val members: Scope = new Scope(MakeScopeParent.symbol(this), name)
 
     def parent(): Symbol = _parent[0]
     def has_parent(): bool = _parent.Length > 0
+
+    def has_declaration(): bool = _declaration_count > 0
 
     def add_declaration(declaration: Declaration): Declaration = {
         if (_declaration_count + 1 >= _declarations.Length) {
@@ -167,6 +171,8 @@ class Symbol(kind: int, name: string, location: TextLocation, _parent: Array<Sym
         _declaration_count = _declaration_count + 1
         declaration
     }
+
+    def declaration(): Declaration = _declarations[0]
 
     def declarations(): Array<Declaration> = {
         var newItems = new Declaration[_declaration_count]
@@ -204,8 +210,10 @@ object SymbolTreePrinter {
         val marker = if (last) "└──" else "├──"
         var childIndent = indent
         if (scope.parent.kind == ScopeParentKind.Scope) {
+            print(ANSI.foreground_color(ColorPalette.Comments))
             print(indent)
             print(marker)
+            print(ANSI.Clear)
             if (scope.note == "") {
                 println("Scope")
             } else {
@@ -236,24 +244,50 @@ object SymbolTreePrinter {
 
     def print_symbol(symbol: Symbol, indent: string, last: bool): unit = {
         val marker = if (last) "└──" else "├──"
+
+        print(ANSI.foreground_color(ColorPalette.Comments))
         print(indent)
         print(marker)
+        print(ANSI.Clear)
 
         if (symbol.kind == SymbolKind.Root) {
-            print("Root: ")
-        } else if (symbol.kind == SymbolKind.Type) {
-            print("Type: ")
+            print(ANSI.foreground_color(ColorPalette.Keyword))
+            print("Root")
+            print(ANSI.Clear)
+        } else if (symbol.kind == SymbolKind.Class) {
+            print(ANSI.foreground_color(ColorPalette.Literal1))
+            print("Type")
+            print(ANSI.Clear)
         } else if (symbol.kind == SymbolKind.Field) {
-            print("Field: ")
+            print(ANSI.foreground_color(ColorPalette.Members))
+            print("Field")
+            print(ANSI.Clear)
         } else if (symbol.kind == SymbolKind.Method) {
-            print("Method: ")
+            print(ANSI.foreground_color(ColorPalette.Members))
+            print("Method")
+            print(ANSI.Clear)
+        } else if (symbol.kind == SymbolKind.Constructor) {
+            print(ANSI.foreground_color(ColorPalette.Members))
+            print("Constructor")
+            print(ANSI.Clear)
         } else if (symbol.kind == SymbolKind.Parameter) {
-            print("Parameter: ")
+            print(ANSI.foreground_color(ColorPalette.Identifier))
+            print("Parameter")
+            print(ANSI.Clear)
         } else {
-            print("Local: ")
+            print("Local")
         }
+        print(ANSI.Clear)
+        print(": ")
 
-        println(symbol.name)
+        print(symbol.name)
+        if (symbol.has_declaration()) {
+        } else {
+            print(ANSI.foreground_color("e06c75"))
+            print(" [missing declaration]")
+            print(ANSI.Clear)
+        }
+        println()
 
         if (!symbol.members.empty()) {
             val end = if (last) "    " else "│   "
@@ -261,4 +295,5 @@ object SymbolTreePrinter {
             print_scope(symbol.members, childIndent, true)
         } else {}
     }
+
 }
