@@ -27,6 +27,80 @@ class UnionType(left: Type, right: Type)
 class IntersectionType(left: Type, right: Type)
 class PrimitiveType(name: string)
 class TypeVariable(name: string, hash: int)
-class FunctionType(lhs: Type, rhs: Type)
+class FunctionType(parameters: Array<Type>, returnType: Type)
 class RecordType(fields: Array<RecordTypeField>)
     class RecordTypeField(name: string, type: Type)
+
+
+object MakeType {
+    val top: Type = new Type(
+        TypeKind.Any,
+        new UnionType[0],
+        new IntersectionType[0],
+        new PrimitiveType[0],
+        new TypeVariable[0],
+        new FunctionType[0],
+        new RecordType[0]
+    )
+
+    val bottom: Type = new Type(
+        TypeKind.Nothing,
+        new UnionType[0],
+        new IntersectionType[0],
+        new PrimitiveType[0],
+        new TypeVariable[0],
+        new FunctionType[0],
+        new RecordType[0]
+    )
+
+    def primitive(name: string): Type = new Type(
+        TypeKind.Primitive,
+        new UnionType[0],
+        new IntersectionType[0],
+        new PrimitiveType[] { new PrimitiveType(name) },
+        new TypeVariable[0],
+        new FunctionType[0],
+        new RecordType[0]
+    )
+
+    def function(parameters: Array<Type>, returnType: Type): Type = new Type(
+        TypeKind.Function,
+        new UnionType[0],
+        new IntersectionType[0],
+        new PrimitiveType[0],
+        new TypeVariable[0],
+        new FunctionType[] { new FunctionType(parameters, returnType) },
+        new RecordType[0]
+    )
+
+    def union(lhs: Type, rhs: Type): Type = new Type(
+        TypeKind.Function,
+        new UnionType[] { new UnionType(lhs, rhs)},
+        new IntersectionType[0],
+        new PrimitiveType[0],
+        new TypeVariable[0],
+        new FunctionType[0],
+        new RecordType[0]
+    )
+
+    def intersection(lhs: Type, rhs: Type): Type = new Type(
+        TypeKind.Function,
+        new UnionType[0],
+        new IntersectionType[] { new IntersectionType(lhs, rhs)},
+        new PrimitiveType[0],
+        new TypeVariable[0],
+        new FunctionType[0],
+        new RecordType[0]
+    )
+
+    def record(rec: RecordType): Type = new Type(
+        TypeKind.Record,
+        new UnionType[0],
+        new IntersectionType[0],
+        new PrimitiveType[0],
+        new TypeVariable[0],
+        new FunctionType[0],
+        new RecordType[] { rec }
+    )
+
+}

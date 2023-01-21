@@ -27,6 +27,9 @@ object MakeCompilation {
             diag = diag + 1
         }
 
+        val checker = new Checker()
+        checker.infer_types(root)
+
         new Compilation(trees, root, all_diags)
     }
 }

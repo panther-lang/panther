@@ -11,7 +11,10 @@ object SimpleTypeKind {
     val Variable = 1
     val Concrete = 2
 }
-class SimpleType(kind: int, variable: Array<Variable>, concrete: Array<ConcreteType>)
+class SimpleType(kind: int, variable: Array<Variable>, concrete: Array<ConcreteType>) {
+    def is_any(): bool = kind == SimpleTypeKind.Concrete && concrete[0].kind == ConcreteTypeKind.Any
+    def is_nothing(): bool = kind == SimpleTypeKind.Concrete && concrete[0].kind == ConcreteTypeKind.Nothing
+}
 
 object ConcreteTypeKind {
     val Any = 1 // Top
@@ -29,11 +32,15 @@ class ConcreteType(
     variable: Array<Variable>
 )
 
-class Function(lhs: SimpleType, rhs: SimpleType)
+class Function(params: Array<SimpleType>, returnType: SimpleType)
 class RecordField(name: string, type: SimpleType)
 class Record(fields: Array<RecordField>)
 class Primitive(name: string)
-class Variable(lower: ConcreteType, upper: ConcreteType)
+class Variable(lower: ConcreteType, upper: ConcreteType) {
+    def lower_bound(): SimpleType = {}
+    def upper_bound(): SimpleType = { panic() }
+    def as_type_var(): Type = {}
+}
 
 // Any is Top (super type of all types)
 // Nothing is Bottom (sub type of all types)
@@ -110,6 +117,10 @@ class Checker() {
     var symbol_links = new SymbolLinks[10]
     var last_node_id = 0
     var node_links = new NodeLinks[10]
+
+    def infer_types(root: Symbol): unit = {
+
+    }
 
     def fresh_var(): Variable = new Variable(Nothing, Any)
 
@@ -191,4 +202,53 @@ class Checker() {
         val id = get_symbol_id(symbol)
         symbol_links[id]
     }
+
+    // convert an inferred SimpleType into the immutable type representation
+    def coalesce_type(simple: SimpleType): Type =
+        coalesce_type(simple, true)
+
+    def coalesce_type(simple: SimpleType, polarity: bool): Type = {
+        if (simple.kind == SimpleTypeKind.Variable) {
+            val tv = simple.variable[0]
+            val bound = if (polarity) tv.lower_bound() else tv.upper_bound()
+            val bound_type = coalesce_type(bound, polarity)
+            if (polarity && bound.is_nothing() || bound.is_any()) tv.as_type_var()
+            else if (polarity) MakeType.union(tv.as_type_var(), bound_type)
+            else MakeType.intersection(tv.as_type_var(), bound_type)
+        } else {
+            val concrete = simple.concrete[0]
+            if (concrete.kind == ConcreteTypeKind.Function) {
+                MakeType.function(
+                    coalesce_types(concrete.function[0].params, !polarity),
+                    coalesce_type(concrete.function[0].returnType, polarity)
+                )
+            } else if (concrete.kind == ConcreteTypeKind.Record) {
+                MakeType.record(coalesce_record(concrete.record[0], polarity))
+            } else if (concrete.kind == ConcreteTypeKind.Primitive) {
+                MakeType.primitive(concrete.primitive[0].name)
+            } else if (concrete.kind == ConcreteTypeKind.Any) {
+                MakeType.top
+            } else // if (concrete.kind == ConcreteTypeKind.Nothing) {
+                MakeType.bottom
+            }
+    }
+
+    def coalesce_types(simple_types: Array<SimpleType>, polarity: bool): Array<Type> = {
+        val types = new Type[simple_types.Length]
+        for (x <- 0 to simple_types.Length) {
+            types[x] = coalesce_type(simple_types[x], polarity)
+        }
+        types
+    }
+
+    def coalesce_record(record: Record, polarity: bool): RecordType = {
+        val fields = new RecordTypeField[record.fields.Length]
+        for (x <- 0 to record.fields.Length) {
+            fields[x] = coalesce_record_field(record.fields[x], polarity)
+        }
+        new RecordType(fields)
+    }
+
+    def coalesce_record_field(field: RecordField, polarity: bool): RecordTypeField =
+        new RecordTypeField(field.name, coalesce_type(field.type, polarity))
 }
