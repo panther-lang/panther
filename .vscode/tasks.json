@@ -41,6 +41,7 @@
         "src/compiler/binder.pn",
         "src/compiler/types.pn",
         "src/compiler/checker.pn",
+        "src/compiler/emitter.pn",
         "src/compiler/compilation.pn",
         "src/compiler/program.pn "
       ],

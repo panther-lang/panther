@@ -5,14 +5,14 @@ object Program {
     def main(): unit = {
         val args: Array<string> = Environment.GetCommandLineArgs()
 
-        if(args.Length < 2) {
+        if(args.Length < 3) {
             printHelp()
         } else {
             printLogo()
-            val trees = new SyntaxTree[args.Length - 1]
-            for (x <- 1 to args.Length) {
+            val trees = new SyntaxTree[args.Length - 2]
+            for (x <- 2 to args.Length) {
                 println("processing " + args[x] + "...")
-                trees[x - 1] = MakeSyntaxTree.parse_file(args[x])
+                trees[x - 2] = MakeSyntaxTree.parse_file(args[x])
             }
 
             val compilation = MakeCompilation.create(trees)
@@ -22,7 +22,8 @@ object Program {
                     printDiagnostic(compilation.diagnostics[i])
                 }
             } else {
-                compilation.print_symbols()
+                println("emitting to " + args[1] + "...")
+                compilation.emit(args[1])
             }
         }
     }
@@ -79,9 +80,9 @@ object Program {
         println()
     }
 
-    def printToken(token: SyntaxToken) = 
+    def printToken(token: SyntaxToken) =
         println(pad_right("TOKEN[" + SyntaxFacts.get_kind_name(token.kind) + "," + string(token.start) + "]: ", 36) + "\"" + token.text + "\"")
 
     def printLogo() = println("panther - 0.0.1")
-    def printHelp() = println("expected source file argument")
+    def printHelp() = println("pantherc output.c [sources]")
 }

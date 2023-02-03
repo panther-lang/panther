@@ -1,0 +1,5 @@
+class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol) {
+    def emit(output: string): unit = {
+
+    }
+}
