@@ -38,7 +38,7 @@ class Compilation(syntaxTrees: Array<SyntaxTree>, root: Symbol, diagnostics: Arr
     def print_symbols(): unit = SymbolTreePrinter.print_symbol(root)
 
     def emit(output: string): unit = {
-        val emitter = new Emitter(syntaxTrees, root)
-        emitter.emit(output)
+        val emitter = new Emitter(syntaxTrees, root, output)
+        emitter.emit()
     }
 }

@@ -1,5 +1,102 @@
-class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol) {
-    def emit(output: string): unit = {
+using System.IO
 
+class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
+    var header = ""
+    var output = ""
+    var indent = ""
+    var symbol_prefix = ""
+
+    def emit(): unit = {
+        emit_symbol(root)
+        File.WriteAllText(file, "// header:\n" + header + "\n// output: \n" + output)
     }
+
+    def emit_symbol(symbol: Symbol): unit = {
+        if (symbol.kind == SymbolKind.Root) {
+            emit_root_symbol(symbol)
+        } else if (symbol.kind == SymbolKind.Class) {
+            emit_class_symbol(symbol)
+        } else if (symbol.kind == SymbolKind.Method) {
+            emit_method_symbol(symbol)
+        } else if (symbol.kind == SymbolKind.Constructor) {
+            emit_constructor_symbol(symbol)
+        } else if (symbol.kind == SymbolKind.Field) {
+            emit_field_symbol(symbol)
+        } else if (symbol.kind == SymbolKind.Parameter) {
+            emit_parameter_symbol(symbol)
+        } else if (symbol.kind == SymbolKind.Local) {
+            emit_local_symbol(symbol)
+        } else {
+            emit_panic("unknown symbol kind: " + string(symbol.kind))
+        }
+    }
+
+    def emit_symbols(symbols: Array<Symbol>): unit = {
+        val num_symbols = symbols.Length
+        for (i <- 0 to num_symbols) {
+            emit_symbol(symbols[i])
+        }
+    }
+
+    def emit_class_symbol(symbol: Symbol): unit = {
+        emit_comment("class " + symbol.name)
+        emitln()
+
+        val save_prefix = symbol_prefix
+        symbol_prefix = symbol_prefix + symbol.name + "_"
+
+        emit_symbols(symbol.members.symbols())
+
+        symbol_prefix = save_prefix
+    }
+
+    def emit_constructor_symbol(symbol: Symbol): unit = {
+        emit_panic("emit_constructor_symbol: " + symbol.name)
+    }
+
+    def emit_field_symbol(symbol: Symbol): unit = {
+        emit_panic("emit_field_symbol: " + symbol.name)
+    }
+
+    def emit_local_symbol(symbol: Symbol): unit = {
+        emit_panic("emit_local_symbol: " + symbol.name)
+    }
+
+    def emit_method_symbol(symbol: Symbol): unit = {
+        val symbol_name = symbol_prefix + symbol.name
+
+        emit_header("/* return type */ ")
+        emit_header(symbol_name)
+        emit_header(";")
+    }
+
+    def emit_parameter_symbol(symbol: Symbol): unit = {
+        emit_panic("emit_parameter_symbol")
+    }
+
+    def emit_root_symbol(symbol: Symbol): unit = {
+        val symbols = symbol.members.symbols()
+        val num_symbols = symbols.Length
+        emit_comment("emitting root with " + string(num_symbols) + " symbols")
+        emitln()
+        emit_symbols(symbols)
+    }
+
+    def emit_comment(comment: string): unit = output = output + "/* " + comment + " */"
+
+    def emit(value: string): unit = output = output + indent + value
+
+    def emitln(value: string): unit = emit(value + "\n")
+
+    def emitln(): unit = output = output + "\n"
+
+    def emit_header(value: string): unit =
+        header = header + value
+
+    def emit_headerln(value: string): unit = emit_header(value + "\n")
+
+    def emit_headerln(): unit = emit_header("\n")
+
+    def emit_panic(value: string): unit =
+        panic(value + ". symbol_prefix: " + symbol_prefix)
 }
