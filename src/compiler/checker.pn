@@ -69,11 +69,12 @@ class Variable(lower: ConcreteType, upper: ConcreteType) {
 class SymbolLinks() {
     var _type: Array<Type> = new Type[0]
 
-    def set_type(typ: Type): unit = {
+    def set_type(typ: Type): Type = {
         _type = new Type[] { typ }
+        typ
     }
 
-    def has_type(): bool = _type.Length == 0
+    def has_type(): bool = _type.Length > 0
     def get_type(): Type = _type[0]
 }
 
@@ -81,21 +82,23 @@ class SymbolLinks() {
 class NodeLinks() {
     var _type: Array<Type> = new Type[0]
 
-    def set_type(typ: Type): unit = {
+    def set_type(typ: Type): Type = {
         _type = new Type[] { typ }
+        typ
     }
 
-    def has_type(): bool = _type.Length == 0
+    def has_type(): bool = _type.Length > 0
     def get_type(): Type = _type[0]
 }
 
 class Checker() {
 
-    val BoolType: Primitive = new Primitive("bool")
-    val CharType: Primitive = new Primitive("char")
-    val IntType: Primitive = new Primitive("int")
-    val StringType: Primitive = new Primitive("string")
-    val UnitType: Primitive = new Primitive("unit")
+    val BoolType: Type = MakeType.primitive("bool")
+    val CharType: Type = MakeType.primitive("char")
+    val IntType: Type = MakeType.primitive("int")
+    val ErrorType: Type = MakeType.primitive("err")
+    val StringType: Type = MakeType.primitive("string")
+    val UnitType: Type = MakeType.primitive("unit")
 
     val Any = new ConcreteType(
         ConcreteTypeKind.Any,
@@ -125,16 +128,22 @@ class Checker() {
     def fresh_var(): Variable = new Variable(Nothing, Any)
 
     def get_type_of_symbol(symbol: Symbol): Type = {
-        if (symbol.kind == SymbolKind.Class) {
-            get_type_of_class_symbol(symbol)
-        } else if (symbol.kind == SymbolKind.Method) {
-            get_type_of_method_symbol(symbol)
-        } else if (symbol.kind == SymbolKind.Field) {
-            get_type_of_field_symbol(symbol)
-        } else if (symbol.kind == SymbolKind.Parameter) {
-            get_type_of_parameter_symbol(symbol)
-        } else { // Local
-            get_type_of_local_symbol(symbol)
+        val links = get_symbol_links(symbol)
+        if (links.has_type()) {
+            links.get_type()
+        } else if (symbol.has_declaration()) {
+            val decl = symbol.declaration()
+            val node_links = get_node_links(MakeNode.decl(decl))
+            if (node_links.has_type()) {
+                node_links.get_type()
+            } else {
+                val type = get_type_of_declaration(decl)
+                node_links.set_type(type)
+                links.set_type(type)
+            }
+        } else {
+            panic("get_type_of_symbol: no declaration")
+            ErrorType
         }
     }
 
@@ -146,13 +155,231 @@ class Checker() {
         }
     }
 
-    def get_type_of_declaration(decl: Declaration): Type = {}
-    def get_type_of_expression(decl: ExpressionSyntax): Type = {}
-    def get_type_of_class_symbol(symbol: Symbol): Type = {}
-    def get_type_of_method_symbol(symbol: Symbol): Type = {}
-    def get_type_of_field_symbol(symbol: Symbol): Type = {}
-    def get_type_of_parameter_symbol(symbol: Symbol): Type = {}
-    def get_type_of_local_symbol(symbol: Symbol): Type = {}
+    def get_type_of_declaration(decl: Declaration): Type = {
+        if (decl.kind == DeclarationKind.Object) {
+            get_type_of_object_declaration(decl.object_declaration[0])
+        } else if (decl.kind == DeclarationKind.Class) {
+            get_type_of_class_declaration(decl.class_declaration[0])
+        } else if (decl.kind == DeclarationKind.Method) {
+            get_type_of_method_declaration(decl.function_declaration[0])
+        } else if (decl.kind == DeclarationKind.Parameter) {
+            get_type_of_parameter_declaration(decl.parameter_declaration[0])
+        } else if (decl.kind == DeclarationKind.Local) {
+            get_type_of_local_declaration(decl.local_declaration[0])
+        } else if (decl.kind == DeclarationKind.Token) {
+            get_type_of_token(decl.token_declaration[0])
+        } else {
+            panic("get_type_of_declaration")
+            ErrorType
+        }
+    }
+
+    def get_type_of_object_declaration(decl: ObjectDeclarationSyntax): Type = {
+        panic("get_type_of_object_declaration")
+        ErrorType
+    }
+
+    def get_type_of_class_declaration(decl: ClassDeclarationSyntax): Type = {
+        panic("get_type_of_class_declaration")
+        ErrorType
+    }
+
+    def get_type_of_method_declaration(decl: FunctionDeclarationSyntax): Type = {
+        panic("get_type_of_method_declaration")
+        ErrorType
+    }
+
+    def get_type_of_parameter_declaration(decl: ParameterSyntax): Type =
+        get_type_of_type_annotation(decl.typeAnnotation)
+
+    def get_type_of_local_declaration(decl: VariableDeclarationStatementSyntax): Type = {
+        // check type annotation first
+        if (decl.typeAnnotation.Length > 0) {
+            get_type_of_type_annotation(decl.typeAnnotation[0])
+        } else {
+            get_type_of_expression(decl.expression)
+        }
+    }
+
+    def get_type_of_expression(expr: ExpressionSyntax): Type = {
+        val node = MakeNode.expr(expr)
+        val links = get_node_links(node)
+        if (links.has_type()) {
+            links.get_type()
+        } else {
+            val type = if (expr.kind == SyntaxKind.ArrayCreationExpression) {
+                get_type_of_array_creation_expression(expr.arrayCreationExpression[0])
+            } else if (expr.kind == SyntaxKind.AssignmentExpression) {
+                get_type_of_assignment_expression(expr.assignmentExpression[0])
+            } else if (expr.kind == SyntaxKind.BinaryExpression) {
+                get_type_of_binary_expression(expr.binaryExpression[0])
+            } else if (expr.kind == SyntaxKind.BlockExpression) {
+                get_type_of_block_expression(expr.blockExpression[0])
+            } else if (expr.kind == SyntaxKind.CallExpression) {
+                get_type_of_call_expression(expr.callExpression[0])
+            } else if (expr.kind == SyntaxKind.ForExpression) {
+                get_type_of_for_expression(expr.forExpression[0])
+            } else if (expr.kind == SyntaxKind.GroupExpression) {
+                get_type_of_group_expression(expr.groupExpression[0])
+            } else if (expr.kind == SyntaxKind.IdentifierName) {
+                get_type_of_identifier_name(expr.identifierName[0])
+            } else if (expr.kind == SyntaxKind.IfExpression) {
+                get_type_of_if_expression(expr.ifExpression[0])
+            } else if (expr.kind == SyntaxKind.IndexExpression) {
+                get_type_of_index_expression(expr.indexExpression[0])
+            } else if (expr.kind == SyntaxKind.LiteralExpression) {
+                get_type_of_literal_expression(expr.literalExpression[0])
+            } else if (expr.kind == SyntaxKind.MemberAccessExpression) {
+                get_type_of_member_access_expression(expr.memberAccessExpression[0])
+            } else if (expr.kind == SyntaxKind.NewExpression) {
+                get_type_of_new_expression(expr.newExpression[0])
+            } else if (expr.kind == SyntaxKind.UnaryExpression) {
+                get_type_of_unary_expression(expr.unaryExpression[0])
+            } else if (expr.kind == SyntaxKind.UnitExpression) {
+                get_type_of_unit_expression(expr.unitExpression[0])
+            } else if (expr.kind == SyntaxKind.WhileExpression) {
+                get_type_of_while_expression(expr.whileExpression[0])
+            } else {
+                panic("get_type_of_expression: " + string(expr.kind))
+                ErrorType
+            }
+            links.set_type(type)
+        }
+    }
+
+    def get_type_of_array_creation_expression(expr: ArrayCreationExpressionSyntax): Type = {
+        panic("get_type_of_array_creation_expression")
+        ErrorType
+    }
+    def get_type_of_assignment_expression(expr: AssignmentExpressionSyntax): Type = {
+        panic("get_type_of_assignment_expression")
+        ErrorType
+    }
+    def get_type_of_binary_expression(expr: BinaryExpressionSyntax): Type = {
+        panic("get_type_of_binary_expression")
+        ErrorType
+    }
+    def get_type_of_block_expression(expr: BlockExpressionSyntax): Type = {
+        panic("get_type_of_block_expression")
+        ErrorType
+    }
+    def get_type_of_call_expression(expr: CallExpressionSyntax): Type = {
+        panic("get_type_of_call_expression")
+        ErrorType
+    }
+    def get_type_of_for_expression(expr: ForExpressionSyntax): Type = {
+        panic("get_type_of_for_expression")
+        ErrorType
+    }
+    def get_type_of_group_expression(expr: GroupExpressionSyntax): Type = {
+        panic("get_type_of_group_expression")
+        ErrorType
+    }
+    def get_type_of_identifier_name(expr: IdentifierNameSyntax): Type = {
+        panic("get_type_of_identifier_name")
+        ErrorType
+    }
+    def get_type_of_if_expression(expr: IfExpressionSyntax): Type = {
+        panic("get_type_of_if_expression")
+        ErrorType
+    }
+    def get_type_of_index_expression(expr: IndexExpressionSyntax): Type = {
+        panic("get_type_of_index_expression")
+        ErrorType
+    }
+    def get_type_of_literal_expression(expr: LiteralExpressionSyntax): Type = {
+        panic("get_type_of_literal_expression")
+        ErrorType
+    }
+    def get_type_of_member_access_expression(expr: MemberAccessExpressionSyntax): Type = {
+        panic("get_type_of_member_access_expression")
+        ErrorType
+    }
+    def get_type_of_new_expression(expr: NewExpressionSyntax): Type = {
+        panic("get_type_of_new_expression")
+        ErrorType
+    }
+    def get_type_of_unary_expression(expr: UnaryExpressionSyntax): Type = {
+        panic("get_type_of_unary_expression")
+        ErrorType
+    }
+    def get_type_of_unit_expression(expr: UnitExpressionSyntax): Type = {
+        panic("get_type_of_unit_expression")
+        ErrorType
+    }
+    def get_type_of_while_expression(expr: WhileExpressionSyntax): Type = {
+        panic("get_type_of_while_expression")
+        ErrorType
+    }
+
+
+    def get_type_of_type_annotation(typ: TypeAnnotationSyntax): Type =
+        get_type_of_name(typ.type)
+
+    def get_type_of_token(token: SyntaxToken): Type =
+        get_type_of_string(token.text)
+
+    def get_type_of_string(name: string): Type = {
+        if (name == "int") {
+            IntType
+        } else {
+            panic("get_type_of_string: " + name)
+            ErrorType
+        }
+    }
+
+    def get_type_of_name(name: NameSyntax): Type = {
+        if (name.kind == SyntaxKind.SimpleName) {
+            get_type_of_simple_name(name.simpleName[0])
+        } else if (name.kind == SyntaxKind.QualifiedName) {
+            get_type_of_qualified_name(name.qualifiedName[0])
+        } else {
+            panic("get_type_of_name")
+            ErrorType
+        }
+    }
+
+    def get_type_of_simple_name(name: SimpleNameSyntax): Type = {
+        if (name.kind == SyntaxKind.IdentifierName) {
+            get_type_of_token(name.identifierName[0].identifier)
+        } else if (name.kind == SyntaxKind.GenericName) {
+            get_type_of_generic_name(name.genericName[0])
+        } else {
+            panic("get_type_of_simple_name")
+            ErrorType
+        }
+    }
+
+    def get_type_of_generic_name(name: GenericNameSyntax): Type = {
+        panic("get_type_of_generic_name")
+        ErrorType
+    }
+
+    def get_type_of_qualified_name(name: QualifiedNameSyntax): Type = {
+        panic("get_type_of_qualified_name")
+        ErrorType
+    }
+
+    def get_type_of_class_symbol(symbol: Symbol): Type = {
+        panic("get_type_of_class_symbol")
+        ErrorType
+    }
+    def get_type_of_method_symbol(symbol: Symbol): Type = {
+        panic("get_type_of_method_symbol")
+        ErrorType
+    }
+    def get_type_of_field_symbol(symbol: Symbol): Type = {
+        panic("get_type_of_field_symbol")
+        ErrorType
+    }
+    def get_type_of_parameter_symbol(symbol: Symbol): Type = {
+        panic("get_type_of_parameter_symbol")
+        ErrorType
+    }
+    def get_type_of_local_symbol(symbol: Symbol): Type = {
+        panic("get_type_of_local_symbol")
+        ErrorType
+    }
 
 
     def get_node_id(node: Node): int = {

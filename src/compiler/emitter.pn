@@ -1,14 +1,25 @@
 using System.IO
 
+object EmitSection {
+    val Header = 0
+    val Types = 1
+    val Methods = 2
+    val Definitions = 3
+}
+
 class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
-    var header = ""
-    var output = ""
+    var sections = new string[] { "",  "", "", "" }
     var indent = ""
     var symbol_prefix = ""
+    var container: Symbol = root
+
+    val checker = new Checker()
 
     def emit(): unit = {
         emit_symbol(root)
-        File.WriteAllText(file, "// header:\n" + header + "\n// output: \n" + output)
+        File.WriteAllText(file, "// Types:\n" + sections[EmitSection.Types] +
+                                "\n// Methods:\n" + sections[EmitSection.Methods] +
+                                "\n// Definitions: \n" + sections[EmitSection.Definitions])
     }
 
     def emit_symbol(symbol: Symbol): unit = {
@@ -39,19 +50,56 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     }
 
     def emit_class_symbol(symbol: Symbol): unit = {
-        emit_comment("class " + symbol.name)
-        emitln()
+        SymbolTreePrinter.print_symbol(symbol)
+        if (symbol.has_declaration()) {
+            if (symbol.declaration().kind == DeclarationKind.Class) {
+                // emit struct
+                emitln("struct " + symbol.name + ";", EmitSection.Header)
+                emitln("struct " + symbol.name + " {", EmitSection.Types)
+                val symbols = symbol.members.symbols()
+                val num_symbols = symbols.Length
+                for (i <- 0 to num_symbols) {
+                    if (symbols[i].kind == SymbolKind.Field) {
+                        emit("  ", EmitSection.Types)
+                        emit_type(checker.get_type_of_symbol(symbols[i]), EmitSection.Types)
+                        emitln(" " + symbols[i].name + ";", EmitSection.Types)
+                    } else {
 
+                    }
+                }
+
+                emit("}", EmitSection.Types)
+            } else {
+
+            }
+        } else {
+
+        }
+
+        emit_comment("class " + symbol.name, EmitSection.Definitions)
+        emitln(EmitSection.Definitions)
+
+
+
+
+
+        // TODO: need to determine if this is a class, if so
+        // emit struct with fields
+        val prevContainer = container
+        container = symbol
         val save_prefix = symbol_prefix
         symbol_prefix = symbol_prefix + symbol.name + "_"
 
         emit_symbols(symbol.members.symbols())
 
         symbol_prefix = save_prefix
+        container = prevContainer
     }
 
     def emit_constructor_symbol(symbol: Symbol): unit = {
-        emit_panic("emit_constructor_symbol: " + symbol.name)
+        emit(container.name + " " + symbol_prefix + "new (", EmitSection.Definitions)
+        emit_symbols(symbol.members.symbols())
+        emit(");", EmitSection.Definitions)
     }
 
     def emit_field_symbol(symbol: Symbol): unit = {
@@ -65,38 +113,59 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     def emit_method_symbol(symbol: Symbol): unit = {
         val symbol_name = symbol_prefix + symbol.name
 
-        emit_header("/* return type */ ")
-        emit_header(symbol_name)
-        emit_header(";")
+        emit("/* return type */ ", EmitSection.Methods)
+        emit(symbol_name, EmitSection.Methods)
+        emitln(";", EmitSection.Methods)
     }
 
     def emit_parameter_symbol(symbol: Symbol): unit = {
-        emit_panic("emit_parameter_symbol")
+        emit(symbol.name, EmitSection.Definitions)
+        // emit_panic("emit_parameter_symbol: " + symbol.name)
     }
 
     def emit_root_symbol(symbol: Symbol): unit = {
         val symbols = symbol.members.symbols()
         val num_symbols = symbols.Length
-        emit_comment("emitting root with " + string(num_symbols) + " symbols")
-        emitln()
+        emit_comment("emitting root with " + string(num_symbols) + " symbols", EmitSection.Definitions)
+        emitln(EmitSection.Definitions)
         emit_symbols(symbols)
     }
 
-    def emit_comment(comment: string): unit = output = output + "/* " + comment + " */"
+    def emit_comment(comment: string, section: int): unit = emit("/* " + comment + " */", section)
 
-    def emit(value: string): unit = output = output + indent + value
+    def emitln(value: string, section: int): unit = emit(value + "\n", section)
 
-    def emitln(value: string): unit = emit(value + "\n")
+    def emitln(section: int): unit = sections[section] = sections[section] + "\n"
 
-    def emitln(): unit = output = output + "\n"
+    def emit(value: string, section: int): unit = sections[section] = sections[section] + indent + value
 
-    def emit_header(value: string): unit =
-        header = header + value
+    def emit_type(typ: Type, section: int): unit = {
+        if (typ.kind == TypeKind.Primitive) {
+            emit(typ.primitive[0].name, section)
+        } else {
+            emit_panic("emit_type: " + string(typ.kind))
+        }
+    }
 
-    def emit_headerln(value: string): unit = emit_header(value + "\n")
+    def emit_panic(value: string): unit = {
+        println("--------------------------------------------------")
+        println("-                   HEADER                       -")
+        println("--------------------------------------------------")
+        println(sections[EmitSection.Header])
+        println("--------------------------------------------------")
+        println("-                    TYPES                       -")
+        println("--------------------------------------------------")
+        println(sections[EmitSection.Types])
+        println("--------------------------------------------------")
+        println("-                   METHODS                      -")
+        println("--------------------------------------------------")
+        println(sections[EmitSection.Methods])
 
-    def emit_headerln(): unit = emit_header("\n")
+        println("--------------------------------------------------")
+        println("-                 DEFINITIONS                    -")
+        println("--------------------------------------------------")
+        println(sections[EmitSection.Definitions])
 
-    def emit_panic(value: string): unit =
         panic(value + ". symbol_prefix: " + symbol_prefix)
+    }
 }

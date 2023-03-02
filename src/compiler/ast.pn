@@ -229,11 +229,10 @@ class CompilationUnitSyntax(namespaceDeclaration: Array<NamespaceDeclarationSynt
 object DeclarationKind {
     val Object = 1
     val Class = 2
-    val Field = 3
-    val Method = 4
-    val Parameter = 5
-    val Local = 6
-    val Token = 7
+    val Method = 3
+    val Parameter = 4
+    val Local = 5
+    val Token = 6
 }
 
 // A declaration is any syntax that defines a binding, the type of the
