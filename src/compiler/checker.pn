@@ -127,6 +127,20 @@ class Checker() {
 
     def fresh_var(): Variable = new Variable(Nothing, Any)
 
+    def get_return_type_of_symbol(symbol: Symbol): Type = {
+        val type = get_type_of_symbol(symbol)
+        get_return_type(type)
+    }
+
+    def get_return_type(type: Type): Type = {
+        if (type.kind == TypeKind.Function) {
+            type.function[0].returnType
+        } else {
+            panic("get_return_type expected function kind, found: " + string(type.kind))
+            ErrorType
+        }
+    }
+
     def get_type_of_symbol(symbol: Symbol): Type = {
         val links = get_symbol_links(symbol)
         if (links.has_type()) {
@@ -185,8 +199,20 @@ class Checker() {
     }
 
     def get_type_of_method_declaration(decl: FunctionDeclarationSyntax): Type = {
-        panic("get_type_of_method_declaration")
-        ErrorType
+        val param_types = new Type[decl.parameters.Length]
+        for (i <- 0 to decl.parameters.Length) {
+            param_types[i] = get_type_of_parameter_declaration(decl.parameters[i])
+        }
+
+        val returnType = if (decl.typeAnnotation.Length > 0) {
+            get_type_of_type_annotation(decl.typeAnnotation[0])
+        } else if (decl.body.Length > 0) {
+            get_type_of_expression(decl.body[0].expression)
+        } else {
+            ErrorType
+        }
+
+        MakeType.function(param_types, returnType)
     }
 
     def get_type_of_parameter_declaration(decl: ParameterSyntax): Type =
@@ -322,6 +348,10 @@ class Checker() {
     def get_type_of_string(name: string): Type = {
         if (name == "int") {
             IntType
+        } else if (name == "char") {
+            CharType
+        } else if (name == "string") {
+            StringType
         } else {
             panic("get_type_of_string: " + name)
             ErrorType

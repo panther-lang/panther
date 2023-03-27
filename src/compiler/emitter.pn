@@ -4,7 +4,7 @@ object EmitSection {
     val Header = 0
     val Types = 1
     val Methods = 2
-    val Definitions = 3
+    val Declarations = 3
 }
 
 class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
@@ -12,6 +12,7 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     var indent = ""
     var symbol_prefix = ""
     var container: Symbol = root
+    var container_has_this: bool = false
 
     val checker = new Checker()
 
@@ -19,7 +20,7 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
         emit_symbol(root)
         File.WriteAllText(file, "// Types:\n" + sections[EmitSection.Types] +
                                 "\n// Methods:\n" + sections[EmitSection.Methods] +
-                                "\n// Definitions: \n" + sections[EmitSection.Definitions])
+                                "\n// Declarations: \n" + sections[EmitSection.Declarations])
     }
 
     def emit_symbol(symbol: Symbol): unit = {
@@ -49,12 +50,19 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
         }
     }
 
+    def emit_type_of_symbol(symbol: Symbol, section: int): unit =
+        emit_type(checker.get_type_of_symbol(symbol), section)
+
+    def emit_return_type_of_symbol(symbol: Symbol, section: int): unit =
+        emit_type(checker.get_return_type_of_symbol(symbol), section)
+
     def emit_class_symbol(symbol: Symbol): unit = {
         SymbolTreePrinter.print_symbol(symbol)
         if (symbol.has_declaration()) {
+
             if (symbol.declaration().kind == DeclarationKind.Class) {
                 // emit struct
-                emitln("struct " + symbol.name + ";", EmitSection.Header)
+                emitln("typedef struct " + symbol.name + " " + symbol.name + ";", EmitSection.Header)
                 emitln("struct " + symbol.name + " {", EmitSection.Types)
                 val symbols = symbol.members.symbols()
                 val num_symbols = symbols.Length
@@ -68,42 +76,69 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
                     }
                 }
 
-                emit("}", EmitSection.Types)
+                emit("};", EmitSection.Types)
             } else {
-
             }
         } else {
-
         }
 
-        emit_comment("class " + symbol.name, EmitSection.Definitions)
-        emitln(EmitSection.Definitions)
+        emitln(EmitSection.Declarations)
 
-
-
-
-
-        // TODO: need to determine if this is a class, if so
-        // emit struct with fields
         val prevContainer = container
+        val prevHasThis = container_has_this
         container = symbol
+        container_has_this = symbol.declaration().kind == DeclarationKind.Class
         val save_prefix = symbol_prefix
         symbol_prefix = symbol_prefix + symbol.name + "_"
 
         emit_symbols(symbol.members.symbols())
 
         symbol_prefix = save_prefix
+        container_has_this = prevHasThis
         container = prevContainer
     }
 
-    def emit_constructor_symbol(symbol: Symbol): unit = {
-        emit(container.name + " " + symbol_prefix + "new (", EmitSection.Definitions)
-        emit_symbols(symbol.members.symbols())
-        emit(");", EmitSection.Definitions)
+    def emit_method_decl(symbol: Symbol, ctor: bool, has_this: bool): unit = {
+        // emit return type.
+        if (ctor) {
+            emit(container.name, EmitSection.Declarations)
+        } else {
+            emit_return_type_of_symbol(symbol, EmitSection.Declarations)
+        }
+
+        // emit name
+        emit(" " + symbol_prefix, EmitSection.Declarations)
+        if (ctor) {
+            emit("new", EmitSection.Declarations)
+        } else {
+            emit(symbol.name, EmitSection.Declarations)
+        }
+
+        // emit parameters
+        emit(" (", EmitSection.Declarations)
+        val symbols = symbol.members.symbols()
+        val num_symbols = symbols.Length
+        for (i <- 0 to num_symbols) {
+            emit_type_of_symbol(symbols[i], EmitSection.Declarations)
+            emit(" ", EmitSection.Declarations)
+            emit(symbols[i].name, EmitSection.Declarations)
+            if(i < num_symbols - 1) {
+                emit(", ", EmitSection.Declarations)
+            } else {}
+        }
+
+        emitln(");", EmitSection.Declarations)
     }
 
+
+    def emit_method_decl(symbol: Symbol, has_this: bool): unit =
+        emit_method_decl(symbol, false, has_this)
+
+    def emit_constructor_symbol(symbol: Symbol): unit =
+        emit_method_decl(symbol, true, false)
+
     def emit_field_symbol(symbol: Symbol): unit = {
-        emit_panic("emit_field_symbol: " + symbol.name)
+        // emit_panic("emit_field_symbol: " + symbol.name)
     }
 
     def emit_local_symbol(symbol: Symbol): unit = {
@@ -111,23 +146,24 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     }
 
     def emit_method_symbol(symbol: Symbol): unit = {
-        val symbol_name = symbol_prefix + symbol.name
+        emit_method_decl(symbol, container_has_this)
+        // val symbol_name = symbol_prefix + symbol.name
 
-        emit("/* return type */ ", EmitSection.Methods)
-        emit(symbol_name, EmitSection.Methods)
-        emitln(";", EmitSection.Methods)
+        // emit("/* return type */ ", EmitSection.Methods)
+        // emit(symbol_name, EmitSection.Methods)
+        // emitln(";", EmitSection.Methods)
     }
 
     def emit_parameter_symbol(symbol: Symbol): unit = {
-        emit(symbol.name, EmitSection.Definitions)
+        emit(symbol.name, EmitSection.Declarations)
         // emit_panic("emit_parameter_symbol: " + symbol.name)
     }
 
     def emit_root_symbol(symbol: Symbol): unit = {
         val symbols = symbol.members.symbols()
         val num_symbols = symbols.Length
-        emit_comment("emitting root with " + string(num_symbols) + " symbols", EmitSection.Definitions)
-        emitln(EmitSection.Definitions)
+        emit_comment("emitting root with " + string(num_symbols) + " symbols", EmitSection.Declarations)
+        emitln(EmitSection.Declarations)
         emit_symbols(symbols)
     }
 
@@ -157,14 +193,13 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
         println("--------------------------------------------------")
         println(sections[EmitSection.Types])
         println("--------------------------------------------------")
+        println("-                 DECLARATIONS                   -")
+        println("--------------------------------------------------")
+        println(sections[EmitSection.Declarations])
+        println("--------------------------------------------------")
         println("-                   METHODS                      -")
         println("--------------------------------------------------")
         println(sections[EmitSection.Methods])
-
-        println("--------------------------------------------------")
-        println("-                 DEFINITIONS                    -")
-        println("--------------------------------------------------")
-        println(sections[EmitSection.Definitions])
 
         panic(value + ". symbol_prefix: " + symbol_prefix)
     }

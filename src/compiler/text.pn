@@ -1,16 +1,16 @@
 using System.IO
 
 class TextSpan(start: int, length: int) {
-    val end = start + length
+    val end: int = start + length
 }
 
 object TextSpanFactory {
-    def from_bounds(start: int, end: int) = new TextSpan(start, end - start)
+    def from_bounds(start: int, end: int): TextSpan = new TextSpan(start, end - start)
 }
 
 class TextLine(start: int, length: int, length_with_line_breaks: int) {
-    val end = start + length
-    val span = new TextSpan(start, length)
+    val end: int = start + length
+    val span: TextSpan = new TextSpan(start, length)
 }
 
 class TextLineList() {
