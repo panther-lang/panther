@@ -198,7 +198,7 @@ struct ArrayCreationExpressionSyntax {
   SyntaxToken newKeyword;
   NameSyntax name;
   SyntaxToken openBracket;
-  array_ExpressionSyntax arrayRank;
+  array_unresolved arrayRank;
   SyntaxToken closeBracket;
   array_ArrayInitializerExpressionSyntax initializer;
 };
@@ -213,21 +213,21 @@ struct GenericNameSyntax {
 };
 
 struct QualifiedNameSyntax {
-  NameSyntax left;
+  unresolved left;
   SyntaxToken dotToken;
-  err right;
+  SimpleNameSyntax right;
 };
 
 struct SimpleNameSyntax {
   int kind;
   array_GenericNameSyntax genericName;
-  array_err identifierName;
+  array_IdentifierNameSyntax identifierName;
 };
 
 struct NameSyntax {
   int kind;
-  array_err qualifiedName;
-  array_err simpleName;
+  array_QualifiedNameSyntax qualifiedName;
+  array_SimpleNameSyntax simpleName;
 };
 
 struct ExpressionItemSyntax {
@@ -236,32 +236,32 @@ struct ExpressionItemSyntax {
 };
 
 struct ExpressionListSyntax {
-  array_err expressions;
+  array_ExpressionItemSyntax expressions;
 };
 
 struct AssignmentExpressionSyntax {
-  ExpressionSyntax left;
+  unresolved left;
   SyntaxToken equals;
-  ExpressionSyntax right;
+  unresolved right;
 };
 
 struct BinaryExpressionSyntax {
-  ExpressionSyntax left;
+  unresolved left;
   SyntaxToken operator;
-  ExpressionSyntax right;
+  unresolved right;
 };
 
 struct BlockExpressionSyntax {
   SyntaxToken openBrace;
   array_StatementSyntax statements;
-  array_ExpressionSyntax expression;
+  array_unresolved expression;
   SyntaxToken closeBrace;
 };
 
 struct CallExpressionSyntax {
-  ExpressionSyntax name;
+  unresolved name;
   SyntaxToken openParen;
-  ExpressionListSyntax arguments;
+  unresolved arguments;
   SyntaxToken closeParen;
 };
 
@@ -270,33 +270,33 @@ struct ForExpressionSyntax {
   SyntaxToken openParen;
   SyntaxToken identifier;
   SyntaxToken arrow;
-  ExpressionSyntax fromExpr;
+  unresolved fromExpr;
   SyntaxToken toKeyword;
-  ExpressionSyntax toExpr;
+  unresolved toExpr;
   SyntaxToken closeParen;
-  ExpressionSyntax body;
+  unresolved body;
 };
 
 struct GroupExpressionSyntax {
   SyntaxToken openParen;
-  ExpressionSyntax expression;
+  unresolved expression;
   SyntaxToken closeParen;
 };
 
 struct IfExpressionSyntax {
   SyntaxToken ifKeyword;
   SyntaxToken openParen;
-  ExpressionSyntax condition;
+  unresolved condition;
   SyntaxToken closeParen;
-  ExpressionSyntax then;
+  unresolved then;
   SyntaxToken elseKeyword;
-  ExpressionSyntax elseExpr;
+  unresolved elseExpr;
 };
 
 struct IndexExpressionSyntax {
-  ExpressionSyntax left;
+  unresolved left;
   SyntaxToken openBracket;
-  ExpressionSyntax index;
+  unresolved index;
   SyntaxToken closeBracket;
 };
 
@@ -306,22 +306,22 @@ struct LiteralExpressionSyntax {
 };
 
 struct MemberAccessExpressionSyntax {
-  ExpressionSyntax left;
+  unresolved left;
   SyntaxToken dotToken;
-  err right;
+  IdentifierNameSyntax right;
 };
 
 struct NewExpressionSyntax {
   SyntaxToken newKeyword;
   NameSyntax identifier;
   SyntaxToken openParen;
-  ExpressionListSyntax arguments;
+  unresolved arguments;
   SyntaxToken closeParen;
 };
 
 struct UnaryExpressionSyntax {
   SyntaxToken operator;
-  ExpressionSyntax expression;
+  unresolved expression;
 };
 
 struct UnitExpressionSyntax {
@@ -332,29 +332,29 @@ struct UnitExpressionSyntax {
 struct WhileExpressionSyntax {
   SyntaxToken whileKeyword;
   SyntaxToken openParen;
-  ExpressionSyntax left;
+  unresolved left;
   SyntaxToken closeParen;
-  ExpressionSyntax body;
+  unresolved body;
 };
 
 struct ExpressionSyntax {
   int kind;
-  array_err arrayCreationExpression;
-  array_err assignmentExpression;
-  array_err binaryExpression;
-  array_err blockExpression;
-  array_err callExpression;
-  array_err forExpression;
-  array_err groupExpression;
-  array_err identifierName;
-  array_err ifExpression;
-  array_err indexExpression;
-  array_err literalExpression;
-  array_err memberAccessExpression;
-  array_err newExpression;
-  array_err unaryExpression;
-  array_err unitExpression;
-  array_err whileExpression;
+  array_ArrayCreationExpressionSyntax arrayCreationExpression;
+  array_AssignmentExpressionSyntax assignmentExpression;
+  array_BinaryExpressionSyntax binaryExpression;
+  array_BlockExpressionSyntax blockExpression;
+  array_CallExpressionSyntax callExpression;
+  array_ForExpressionSyntax forExpression;
+  array_GroupExpressionSyntax groupExpression;
+  array_IdentifierNameSyntax identifierName;
+  array_IfExpressionSyntax ifExpression;
+  array_IndexExpressionSyntax indexExpression;
+  array_LiteralExpressionSyntax literalExpression;
+  array_MemberAccessExpressionSyntax memberAccessExpression;
+  array_NewExpressionSyntax newExpression;
+  array_UnaryExpressionSyntax unaryExpression;
+  array_UnitExpressionSyntax unitExpression;
+  array_WhileExpressionSyntax whileExpression;
   int id;
 };
 
@@ -370,13 +370,13 @@ struct ParameterSyntax {
 };
 
 struct TypeArgumentItemSyntax {
-  NameSyntax name;
+  unresolved name;
   array_SyntaxToken separator;
 };
 
 struct TypeArgumentListSyntax {
   SyntaxToken lessThanToken;
-  array_err arguments;
+  array_TypeArgumentItemSyntax arguments;
   SyntaxToken greaterThanToken;
 };
 
@@ -421,7 +421,7 @@ struct VariableDeclarationStatementSyntax {
   SyntaxToken identifier;
   array_TypeAnnotationSyntax typeAnnotation;
   SyntaxToken equalToken;
-  ExpressionSyntax expression;
+  unresolved expression;
 };
 
 struct BreakStatementSyntax {
@@ -433,15 +433,15 @@ struct ContinueStatementSyntax {
 };
 
 struct ExpressionStatementSyntax {
-  ExpressionSyntax expression;
+  unresolved expression;
 };
 
 struct StatementSyntax {
   int kind;
-  array_err variableDeclarationStatement;
-  array_err breakStatement;
-  array_err continueStatement;
-  array_err expressionStatement;
+  array_VariableDeclarationStatementSyntax variableDeclarationStatement;
+  array_BreakStatementSyntax breakStatement;
+  array_ContinueStatementSyntax continueStatement;
+  array_ExpressionStatementSyntax expressionStatement;
 };
 
 struct GlobalStatementSyntax {
@@ -450,10 +450,10 @@ struct GlobalStatementSyntax {
 
 struct MemberSyntax {
   int kind;
-  array_err objects;
-  array_err classes;
-  array_err functions;
-  array_err statements;
+  array_ObjectDeclarationSyntax objects;
+  array_ClassDeclarationSyntax classes;
+  array_FunctionDeclarationSyntax functions;
+  array_GlobalStatementSyntax statements;
 };
 
 struct NamespaceDeclarationSyntax {
@@ -473,11 +473,11 @@ struct Declaration {
   int kind;
   string name;
   TextLocation location;
-  array_err object_declaration;
-  array_err class_declaration;
-  array_err function_declaration;
+  array_ObjectDeclarationSyntax object_declaration;
+  array_ClassDeclarationSyntax class_declaration;
+  array_FunctionDeclarationSyntax function_declaration;
   array_ParameterSyntax parameter_declaration;
-  array_err local_declaration;
+  array_VariableDeclarationStatementSyntax local_declaration;
   array_SyntaxToken token_declaration;
   int id;
 };
@@ -508,32 +508,32 @@ struct SyntaxTree {
 struct ScopeParent {
   int kind;
   array_Symbol symbol;
-  array_err scope;
+  array_unresolved scope;
 };
 
 struct Scope {
   ScopeParent parent;
   string note;
   int _symbol_count;
-  array_Symbol _symbols;
+  array_unresolved _symbols;
   int _scope_count;
-  array_err _scopes;
+  array_unresolved _scopes;
 };
 
 struct Symbol {
   int kind;
   string name;
   TextLocation location;
-  array_err _parent;
+  array_unresolved _parent;
   array_Declaration _declarations;
   int _declaration_count;
   int id;
-  err members;
+  Scope members;
 };
 
 struct SymbolResult {
   int kind;
-  array_Symbol symbol;
+  array_unresolved symbol;
 };
 
 struct Binder {
@@ -556,17 +556,17 @@ struct Type {
 };
 
 struct UnionType {
-  err left;
-  err right;
+  Type left;
+  Type right;
 };
 
 struct ArrayType {
-  err inner;
+  unresolved inner;
 };
 
 struct IntersectionType {
-  err left;
-  err right;
+  unresolved left;
+  unresolved right;
 };
 
 struct PrimitiveType {
@@ -579,42 +579,42 @@ struct TypeVariable {
 };
 
 struct FunctionType {
-  array_err parameters;
-  err returnType;
+  array_unresolved parameters;
+  unresolved returnType;
 };
 
 struct RecordType {
-  array_err fields;
+  array_RecordTypeField fields;
 };
 
 struct RecordTypeField {
   string name;
-  err type;
+  unresolved type;
 };
 
 struct SymbolLinks {
-  array_err _type;
+  bool typing;
+  array_Type _type;
 };
 
 struct NodeLinks {
   array_Symbol _symbol;
-  array_err _type;
+  array_Type _type;
 };
 
 struct Checker {
   Symbol root;
-  err BoolType;
-  err CharType;
-  err IntType;
-  err ErrorType;
-  err StringType;
-  err UnitType;
-  err AnyType;
+  Type BoolType;
+  Type CharType;
+  Type IntType;
+  Type ErrorType;
+  Type StringType;
+  Type UnitType;
+  Type AnyType;
   int last_symbol_id;
   array_SymbolLinks symbol_links;
   int last_node_id;
   array_NodeLinks node_links;
-  int reentrant;
 };
 
 struct Emitter {

@@ -148,7 +148,7 @@ class Scope(parent: ScopeParent, note: string) {
 class Symbol(kind: int, name: string, location: TextLocation, _parent: Array<Symbol>) {
     var _declarations: Array<Declaration> = new Declaration[0]
     var _declaration_count = 0
-    var id = -1
+    var id = -1 // used in type checking
 
     val members: Scope = new Scope(MakeScopeParent.symbol(this), name)
 

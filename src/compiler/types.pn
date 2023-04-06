@@ -24,6 +24,7 @@ object TypeKind {
     val Function = 7
     val Record = 8
     val Array = 9
+    val Unresolved = 10
 }
 
 class UnionType(left: Type, right: Type)
@@ -34,7 +35,6 @@ class TypeVariable(name: string, hash: int)
 class FunctionType(parameters: Array<Type>, returnType: Type)
 class RecordType(fields: Array<RecordTypeField>)
     class RecordTypeField(name: string, type: Type)
-
 
 object MakeType {
     val top: Type = new Type(
@@ -121,16 +121,30 @@ object MakeType {
         new ArrayType[0]
     )
 
-    def array(inner: Type): Type = new Type(
-        TypeKind.Array,
-        new Symbol[0],
+    def array(inner: Type): Type = {
+        new Type(
+            TypeKind.Array,
+            new Symbol[0],
+            new UnionType[0],
+            new IntersectionType[0],
+            new PrimitiveType[0],
+            new TypeVariable[0],
+            new FunctionType[0],
+            new RecordType[0],
+            new ArrayType[] { new ArrayType(inner) }
+        )
+    }
+
+    def unresolved(symbol: Symbol): Type = new Type(
+        TypeKind.Unresolved,
+        new Symbol[] { symbol },
         new UnionType[0],
         new IntersectionType[0],
         new PrimitiveType[0],
         new TypeVariable[0],
         new FunctionType[0],
         new RecordType[0],
-        new ArrayType[] { new ArrayType(inner) }
+        new ArrayType[0]
     )
 
 }

@@ -206,6 +206,9 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
         } else if (typ.kind == TypeKind.Array) {
             emit("array_", section)
             emit_type(typ.array[0].inner, section)
+        } else if (typ.kind == TypeKind.Unresolved) {
+            // TODO: figure out how to resolve types automatically
+            emit("unresolved", section)
         } else {
             emit_panic("emit_type: " + string(typ.kind))
         }
