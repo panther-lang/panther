@@ -1,14 +1,14 @@
 
 
-class Binder(root: Scope, diagnostics: DiagnosticBag) {
+class Binder(root: Symbol, diagnostics: DiagnosticBag) {
 
     var ns = "" // namespace
-    var _parent = new Symbol[0]
+    var _parent = new Symbol[] { root }
 
     def bind_compilation_unit(compilationUnit: CompilationUnitSyntax): unit = {
         // bind_namespace_declarations(compilationUnit.namespaceDeclaration)
         // bind_using_declarations(compilationUnit.usings)
-        bind_members(compilationUnit.members, root)
+        bind_members(compilationUnit.members, root.members)
     }
 
     def bind_members(nodes: Array<MemberSyntax>, scope: Scope): unit = {

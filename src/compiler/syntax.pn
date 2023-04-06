@@ -4,7 +4,7 @@ class SyntaxTrivia(kind: int, start: int, text: string) {
 
 class SyntaxTriviaList() {
     var _items: Array<SyntaxTrivia> = new SyntaxTrivia[0]
-    var _size = 0
+    var _size: int = 0
 
     def ensure_capacity(count: int): unit = {
         if (_size + count >= _items.Length) {
@@ -51,8 +51,8 @@ object MakeSyntaxTokenValue {
 }
 
 class SyntaxToken(source_file: SourceFile, kind: int, start: int, text: string, value: SyntaxTokenValue, leading: Array<SyntaxTrivia>, trailing: Array<SyntaxTrivia>) {
-    val span = new TextSpan(start, text.Length)
-    val location = new TextLocation(source_file, span)
+    val span: TextSpan = new TextSpan(start, text.Length)
+    val location: TextLocation = new TextLocation(source_file, span)
 
     def is_statement_terminator(): bool =
         if (kind == SyntaxKind.EndOfInputToken || kind == SyntaxKind.CloseBraceToken) true

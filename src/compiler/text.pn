@@ -14,7 +14,7 @@ class TextLine(start: int, length: int, length_with_line_breaks: int) {
 }
 
 class TextLineList() {
-    var _size = 0
+    var _size: int = 0
     var _items: Array<TextLine> = new TextLine[0]
 
     def ensure_capacity(count: int): unit = {
@@ -90,8 +90,8 @@ object TextLineParser {
 class SourceFile(content: string, file_name: string) {
     val _lines: Array<TextLine> = TextLineParser.parse(content)
 
-    val line_count = _lines.Length
-    val length = content.Length
+    val line_count: int = _lines.Length
+    val length: int = content.Length
 
     def get(position: int): char =
         if (position >= length) '\0'
@@ -139,11 +139,11 @@ object MakeSourceFile {
 }
 
 class TextLocation(source_file: SourceFile, span: TextSpan) {
-    val file_name = source_file.file_name
-    val start_line = source_file.get_line_index(span.start)
-    val start_character = span.start - source_file.line_to_offset(start_line)
-    val end_line = source_file.get_line_index(span.end)
-    val end_character = span.end - source_file.line_to_offset(end_line)
+    val file_name: string = source_file.file_name
+    val start_line: int = source_file.get_line_index(span.start)
+    val start_character: int = span.start - source_file.line_to_offset(start_line)
+    val end_line: int = source_file.get_line_index(span.end)
+    val end_character: int = span.end - source_file.line_to_offset(end_line)
 
     def to_string(): string =
         file_name + "(" + string(start_line + 1) + "," + string(start_character + 1) + ")"

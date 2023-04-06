@@ -2,12 +2,11 @@ object MakeCompilation {
     def create(trees: Array<SyntaxTree>): Compilation = {
         val diagnosticBag = new DiagnosticBag()
         val root = new Symbol(SymbolKind.Root, "", TextLocationFactory.empty(), new Symbol[0])
-        val root_scope = root.members
 
         var num_diags = 0
         for (x <- 0 to trees.Length) {
             num_diags = num_diags + trees[x].diagnostics.Length
-            val binder = new Binder(root_scope, diagnosticBag)
+            val binder = new Binder(root, diagnosticBag)
             binder.bind_compilation_unit(trees[x].root)
         }
         val bind_diagnostics = diagnosticBag.diagnostics()

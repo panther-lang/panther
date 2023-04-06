@@ -14,7 +14,7 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     var container: Symbol = root
     var container_has_this: bool = false
 
-    val checker = new Checker()
+    val checker = new Checker(root)
 
     def emit(): unit = {
         emit_symbol(root)
@@ -56,33 +56,38 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     def emit_return_type_of_symbol(symbol: Symbol, section: int): unit =
         emit_type(checker.get_return_type_of_symbol(symbol), section)
 
+    def emit_class_def(symbol: Symbol): unit = {
+        emitln("struct " + symbol.name + " {", EmitSection.Types)
+        val symbols = symbol.members.symbols()
+        val num_symbols = symbols.Length
+        for (i <- 0 to num_symbols) {
+            if (symbols[i].kind == SymbolKind.Field || symbols[i].kind == SymbolKind.Parameter) {
+                emit("  ", EmitSection.Types) // indent
+                emit_type(checker.get_type_of_symbol(symbols[i]), EmitSection.Types)
+                emitln(" " + symbols[i].name + ";", EmitSection.Types)
+            } else {
+
+            }
+        }
+
+        emitln("};", EmitSection.Types)
+        emitln(EmitSection.Types)
+    }
+
+    def emit_class_decl(symbol: Symbol): unit =
+        emitln("typedef struct " + symbol.name + " " + symbol.name + ";", EmitSection.Header)
+
+
     def emit_class_symbol(symbol: Symbol): unit = {
-        SymbolTreePrinter.print_symbol(symbol)
+        println("emitting class symbol " + symbol.name + "...")
         if (symbol.has_declaration()) {
-
             if (symbol.declaration().kind == DeclarationKind.Class) {
-                // emit struct
-                emitln("typedef struct " + symbol.name + " " + symbol.name + ";", EmitSection.Header)
-                emitln("struct " + symbol.name + " {", EmitSection.Types)
-                val symbols = symbol.members.symbols()
-                val num_symbols = symbols.Length
-                for (i <- 0 to num_symbols) {
-                    if (symbols[i].kind == SymbolKind.Field) {
-                        emit("  ", EmitSection.Types)
-                        emit_type(checker.get_type_of_symbol(symbols[i]), EmitSection.Types)
-                        emitln(" " + symbols[i].name + ";", EmitSection.Types)
-                    } else {
-
-                    }
-                }
-
-                emit("};", EmitSection.Types)
+                emit_class_decl(symbol)
+                emit_class_def(symbol)
             } else {
             }
         } else {
         }
-
-        emitln(EmitSection.Declarations)
 
         val prevContainer = container
         val prevHasThis = container_has_this
@@ -99,6 +104,9 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     }
 
     def emit_method_decl(symbol: Symbol, ctor: bool, has_this: bool): unit = {
+        println("emitting method decl " + symbol.name + "...")
+        emit_comment("emitting method decl " + symbol.name, EmitSection.Declarations)
+        SymbolTreePrinter.print_symbol(symbol)
         // emit return type.
         if (ctor) {
             emit(container.name, EmitSection.Declarations)
@@ -146,7 +154,7 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     }
 
     def emit_method_symbol(symbol: Symbol): unit = {
-        emit_method_decl(symbol, container_has_this)
+        // emit_method_decl(symbol, container_has_this)
         // val symbol_name = symbol_prefix + symbol.name
 
         // emit("/* return type */ ", EmitSection.Methods)
@@ -155,7 +163,7 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     }
 
     def emit_parameter_symbol(symbol: Symbol): unit = {
-        emit(symbol.name, EmitSection.Declarations)
+        // emit(symbol.name, EmitSection.Declarations)
         // emit_panic("emit_parameter_symbol: " + symbol.name)
     }
 
@@ -167,7 +175,7 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
         emit_symbols(symbols)
     }
 
-    def emit_comment(comment: string, section: int): unit = emit("/* " + comment + " */", section)
+    def emit_comment(comment: string, section: int): unit = emitln("// " + comment, section)
 
     def emitln(value: string, section: int): unit = emit(value + "\n", section)
 
@@ -178,6 +186,11 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     def emit_type(typ: Type, section: int): unit = {
         if (typ.kind == TypeKind.Primitive) {
             emit(typ.primitive[0].name, section)
+        } else if (typ.kind == TypeKind.Record) {
+            emit(typ.symbol[0].name, section)
+        } else if (typ.kind == TypeKind.Array) {
+            emit_type(typ.array[0].inner, section)
+            emit("[]", section)
         } else {
             emit_panic("emit_type: " + string(typ.kind))
         }

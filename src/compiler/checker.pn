@@ -1,46 +1,48 @@
-object TypeSchemeKind {
-    val Polymorphic = 1
-    val Simple = 2
-}
+// object TypeSchemeKind {
+//     val Polymorphic = 1
+//     val Simple = 2
+// }
 
-class TypeScheme(kind: int, polymorphic: Array<PolymorphicType>, simple: Array<SimpleType>)
+// class TypeScheme(kind: int, polymorphic: Array<PolymorphicType>, simple: Array<SimpleType>)
 
-class PolymorphicType(body: SimpleType)
+// class PolymorphicType(body: SimpleType)
 
-object SimpleTypeKind {
-    val Variable = 1
-    val Concrete = 2
-}
-class SimpleType(kind: int, variable: Array<Variable>, concrete: Array<ConcreteType>) {
-    def is_any(): bool = kind == SimpleTypeKind.Concrete && concrete[0].kind == ConcreteTypeKind.Any
-    def is_nothing(): bool = kind == SimpleTypeKind.Concrete && concrete[0].kind == ConcreteTypeKind.Nothing
-}
+// object SimpleTypeKind {
+//     val Variable = 1
+//     val Concrete = 2
+// }
+// class SimpleType(kind: int, variable: Array<Variable>, concrete: Array<ConcreteType>) {
+//     def is_any(): bool = kind == SimpleTypeKind.Concrete && concrete[0].kind == ConcreteTypeKind.Any
+//     def is_nothing(): bool = kind == SimpleTypeKind.Concrete && concrete[0].kind == ConcreteTypeKind.Nothing
+// }
 
-object ConcreteTypeKind {
-    val Any = 1 // Top
-    val Nothing = 2 // Bottom
-    val Function = 3
-    val Record = 4
-    val Primitive = 5
-}
+// object ConcreteTypeKind {
+//     val Any = 1 // Top
+//     val Nothing = 2 // Bottom
+//     val Function = 3
+//     val Record = 4
+//     val Primitive = 5
+//     val Array = 5
+// }
 
-class ConcreteType(
-    kind: int,
-    function: Array<Function>,
-    record: Array<Record>,
-    primitive: Array<Primitive>,
-    variable: Array<Variable>
-)
+// class ConcreteType(
+//     kind: int,
+//     function: Array<Function>,
+//     record: Array<Record>,
+//     primitive: Array<Primitive>,
+//     variable: Array<Variable>
+// )
 
-class Function(params: Array<SimpleType>, returnType: SimpleType)
-class RecordField(name: string, type: SimpleType)
-class Record(fields: Array<RecordField>)
-class Primitive(name: string)
-class Variable(lower: ConcreteType, upper: ConcreteType) {
-    def lower_bound(): SimpleType = {}
-    def upper_bound(): SimpleType = { panic() }
-    def as_type_var(): Type = {}
-}
+// class Function(params: Array<SimpleType>, returnType: SimpleType)
+// class Array(type: Type)
+// class RecordField(name: string, type: SimpleType)
+// class Record(fields: Array<RecordField>)
+// class Primitive(name: string)
+// class Variable(lower: ConcreteType, upper: ConcreteType) {
+//     def lower_bound(): SimpleType = {}
+//     def upper_bound(): SimpleType = { panic() }
+//     def as_type_var(): Type = {}
+// }
 
 // Any is Top (super type of all types)
 // Nothing is Bottom (sub type of all types)
@@ -80,18 +82,24 @@ class SymbolLinks() {
 
 // will be connected to a Declaration or an Expression
 class NodeLinks() {
-    var _type: Array<Type> = new Type[0]
+    var _symbol: Array<Symbol> = new Symbol[0]
+    def has_symbol(): bool = _symbol.Length > 0
+    def get_symbol(): Symbol = _symbol[0]
+    def set_type(symbol: Symbol): Symbol = {
+        _symbol = new Symbol[] { symbol }
+        symbol
+    }
 
+    var _type: Array<Type> = new Type[0]
+    def has_type(): bool = _type.Length > 0
+    def get_type(): Type = _type[0]
     def set_type(typ: Type): Type = {
         _type = new Type[] { typ }
         typ
     }
-
-    def has_type(): bool = _type.Length > 0
-    def get_type(): Type = _type[0]
 }
 
-class Checker() {
+class Checker(root: Symbol) {
 
     val BoolType: Type = MakeType.primitive("bool")
     val CharType: Type = MakeType.primitive("char")
@@ -99,22 +107,23 @@ class Checker() {
     val ErrorType: Type = MakeType.primitive("err")
     val StringType: Type = MakeType.primitive("string")
     val UnitType: Type = MakeType.primitive("unit")
+    val AnyType: Type = MakeType.primitive("any")
 
-    val Any = new ConcreteType(
-        ConcreteTypeKind.Any,
-        new Function[0],
-        new Record[0],
-        new Primitive[0],
-        new Variable[0]
-    )
+    // val Any = new ConcreteType(
+    //     ConcreteTypeKind.Any,
+    //     new Function[0],
+    //     new Record[0],
+    //     new Primitive[0],
+    //     new Variable[0]
+    // )
 
-    val Nothing = new ConcreteType(
-        ConcreteTypeKind.Nothing,
-        new Function[0],
-        new Record[0],
-        new Primitive[0],
-        new Variable[0]
-    )
+    // val Nothing = new ConcreteType(
+    //     ConcreteTypeKind.Nothing,
+    //     new Function[0],
+    //     new Record[0],
+    //     new Primitive[0],
+    //     new Variable[0]
+    // )
 
     var last_symbol_id = 0
     var symbol_links = new SymbolLinks[10]
@@ -125,7 +134,7 @@ class Checker() {
 
     }
 
-    def fresh_var(): Variable = new Variable(Nothing, Any)
+    // def fresh_var(): Variable = new Variable(Nothing, Any)
 
     def get_return_type_of_symbol(symbol: Symbol): Type = {
         val type = get_type_of_symbol(symbol)
@@ -151,7 +160,7 @@ class Checker() {
             if (node_links.has_type()) {
                 node_links.get_type()
             } else {
-                val type = get_type_of_declaration(decl)
+                val type = get_type_of_declaration(decl, symbol.members)
                 node_links.set_type(type)
                 links.set_type(type)
             }
@@ -161,67 +170,73 @@ class Checker() {
         }
     }
 
-    def get_type_of_node(node: Node): Type = {
+    def get_type_of_node(node: Node, scope: Scope): Type = {
         if (node.is_decl()) {
-            get_type_of_declaration(node.declaration[0])
+            get_type_of_declaration(node.declaration[0], scope)
         } else {
             get_type_of_expression(node.expression[0])
         }
     }
 
-    def get_type_of_declaration(decl: Declaration): Type = {
+    def get_type_of_declaration(decl: Declaration, scope: Scope): Type = {
         if (decl.kind == DeclarationKind.Object) {
-            get_type_of_object_declaration(decl.object_declaration[0])
+            get_type_of_object_declaration(decl.object_declaration[0], scope)
         } else if (decl.kind == DeclarationKind.Class) {
-            get_type_of_class_declaration(decl.class_declaration[0])
+            get_type_of_class_declaration(decl.class_declaration[0], scope)
         } else if (decl.kind == DeclarationKind.Method) {
-            get_type_of_method_declaration(decl.function_declaration[0])
+            get_type_of_method_declaration(decl.function_declaration[0], scope)
         } else if (decl.kind == DeclarationKind.Parameter) {
-            get_type_of_parameter_declaration(decl.parameter_declaration[0])
+            get_type_of_parameter_declaration(decl.parameter_declaration[0], scope)
         } else if (decl.kind == DeclarationKind.Local) {
-            get_type_of_local_declaration(decl.local_declaration[0])
+            get_type_of_local_declaration(decl.local_declaration[0], scope)
         } else if (decl.kind == DeclarationKind.Token) {
-            get_type_of_token(decl.token_declaration[0])
+            get_type_of_token(decl.token_declaration[0], scope)
         } else {
             panic("get_type_of_declaration")
             ErrorType
         }
     }
 
-    def get_type_of_object_declaration(decl: ObjectDeclarationSyntax): Type = {
+    def get_type_of_object_declaration(decl: ObjectDeclarationSyntax, scope: Scope): Type = {
         panic("get_type_of_object_declaration")
         ErrorType
     }
 
-    def get_type_of_class_declaration(decl: ClassDeclarationSyntax): Type = {
-        panic("get_type_of_class_declaration")
-        ErrorType
+    def get_type_of_class_declaration(cls: ClassDeclarationSyntax, scope: Scope): Type = {
+        val symbols = scope.symbols()
+        val fields = new RecordTypeField[symbols.Length]
+        for (x <- 0 to symbols.Length) {
+            val fieldType = get_type_of_symbol(symbols[x])
+            fields[x] = new RecordTypeField(symbols[x].name, fieldType)
+        }
+
+        MakeType.record(scope.parent.symbol[0], new RecordType(fields))
     }
 
-    def get_type_of_method_declaration(decl: FunctionDeclarationSyntax): Type = {
+    def get_type_of_method_declaration(decl: FunctionDeclarationSyntax, scope: Scope): Type = {
         val param_types = new Type[decl.parameters.Length]
         for (i <- 0 to decl.parameters.Length) {
-            param_types[i] = get_type_of_parameter_declaration(decl.parameters[i])
+            param_types[i] = get_type_of_parameter_declaration(decl.parameters[i], scope)
         }
 
         val returnType = if (decl.typeAnnotation.Length > 0) {
-            get_type_of_type_annotation(decl.typeAnnotation[0])
+            get_type_of_type_annotation(decl.typeAnnotation[0], scope)
         } else if (decl.body.Length > 0) {
             get_type_of_expression(decl.body[0].expression)
         } else {
             ErrorType
         }
 
-        MakeType.function(param_types, returnType)
+        MakeType.function(scope.parent.symbol[0], param_types, returnType)
     }
 
-    def get_type_of_parameter_declaration(decl: ParameterSyntax): Type =
-        get_type_of_type_annotation(decl.typeAnnotation)
+    def get_type_of_parameter_declaration(decl: ParameterSyntax, scope: Scope): Type =
+        get_type_of_type_annotation(decl.typeAnnotation, scope)
 
-    def get_type_of_local_declaration(decl: VariableDeclarationStatementSyntax): Type = {
+    def get_type_of_local_declaration(decl: VariableDeclarationStatementSyntax, scope: Scope): Type = {
         // check type annotation first
         if (decl.typeAnnotation.Length > 0) {
-            get_type_of_type_annotation(decl.typeAnnotation[0])
+            get_type_of_type_annotation(decl.typeAnnotation[0], scope)
         } else {
             get_type_of_expression(decl.expression)
         }
@@ -339,28 +354,39 @@ class Checker() {
     }
 
 
-    def get_type_of_type_annotation(typ: TypeAnnotationSyntax): Type =
-        get_type_of_name(typ.type)
+    def get_type_of_type_annotation(typ: TypeAnnotationSyntax, scope: Scope): Type =
+        get_type_of_name(typ.type, scope)
 
-    def get_type_of_token(token: SyntaxToken): Type =
-        get_type_of_string(token.text)
+    def get_type_of_token(token: SyntaxToken, scope: Scope): Type =
+        get_type_of_string(token.text, scope)
 
-    def get_type_of_string(name: string): Type = {
+    def get_type_of_string(name: string, scope: Scope): Type = {
         if (name == "int") {
             IntType
         } else if (name == "char") {
             CharType
         } else if (name == "string") {
             StringType
+        } else if (name == "bool") {
+            BoolType
+        } else if (name == "any") {
+            AnyType
+        } else if (name == "unit") {
+            UnitType
         } else {
-            panic("get_type_of_string: " + name)
-            ErrorType
+            val result = scope.get(name)
+            if (result.kind == SymbolResultKind.Symbol) {
+                get_type_of_symbol(result.symbol[0])
+            } else {
+                panic("get_type_of_string: " + name)
+                ErrorType
+            }
         }
     }
 
-    def get_type_of_name(name: NameSyntax): Type = {
+    def get_type_of_name(name: NameSyntax, scope: Scope): Type = {
         if (name.kind == SyntaxKind.SimpleName) {
-            get_type_of_simple_name(name.simpleName[0])
+            get_type_of_simple_name(name.simpleName[0], scope)
         } else if (name.kind == SyntaxKind.QualifiedName) {
             get_type_of_qualified_name(name.qualifiedName[0])
         } else {
@@ -369,20 +395,30 @@ class Checker() {
         }
     }
 
-    def get_type_of_simple_name(name: SimpleNameSyntax): Type = {
+    def get_type_of_simple_name(name: SimpleNameSyntax, scope: Scope): Type = {
         if (name.kind == SyntaxKind.IdentifierName) {
-            get_type_of_token(name.identifierName[0].identifier)
+            get_type_of_token(name.identifierName[0].identifier, scope)
         } else if (name.kind == SyntaxKind.GenericName) {
-            get_type_of_generic_name(name.genericName[0])
+            get_type_of_generic_name(name.genericName[0], scope)
         } else {
             panic("get_type_of_simple_name")
             ErrorType
         }
     }
 
-    def get_type_of_generic_name(name: GenericNameSyntax): Type = {
-        panic("get_type_of_generic_name")
-        ErrorType
+    def get_type_of_generic_name(name: GenericNameSyntax, scope: Scope): Type = {
+        if (name.identifier.text == "Array") {
+            if (name.typeArgumentlist.arguments.Length == 1) {
+                val inner = get_type_of_name(name.typeArgumentlist.arguments[0].name, scope)
+                MakeType.array(inner)
+            } else {
+                panic("Expected Array of rank 1, found rank " + string(name.typeArgumentlist.arguments.Length))
+                ErrorType
+            }
+        } else {
+            panic("Expected Array, found: '" + name.identifier.text + "'")
+            ErrorType
+        }
     }
 
     def get_type_of_qualified_name(name: QualifiedNameSyntax): Type = {
@@ -460,52 +496,53 @@ class Checker() {
         symbol_links[id]
     }
 
-    // convert an inferred SimpleType into the immutable type representation
-    def coalesce_type(simple: SimpleType): Type =
-        coalesce_type(simple, true)
+    // // convert an inferred SimpleType into the immutable type representation
+    // def coalesce_type(simple: SimpleType): Type =
+    //     coalesce_type(simple, true)
 
-    def coalesce_type(simple: SimpleType, polarity: bool): Type = {
-        if (simple.kind == SimpleTypeKind.Variable) {
-            val tv = simple.variable[0]
-            val bound = if (polarity) tv.lower_bound() else tv.upper_bound()
-            val bound_type = coalesce_type(bound, polarity)
-            if (polarity && bound.is_nothing() || bound.is_any()) tv.as_type_var()
-            else if (polarity) MakeType.union(tv.as_type_var(), bound_type)
-            else MakeType.intersection(tv.as_type_var(), bound_type)
-        } else {
-            val concrete = simple.concrete[0]
-            if (concrete.kind == ConcreteTypeKind.Function) {
-                MakeType.function(
-                    coalesce_types(concrete.function[0].params, !polarity),
-                    coalesce_type(concrete.function[0].returnType, polarity)
-                )
-            } else if (concrete.kind == ConcreteTypeKind.Record) {
-                MakeType.record(coalesce_record(concrete.record[0], polarity))
-            } else if (concrete.kind == ConcreteTypeKind.Primitive) {
-                MakeType.primitive(concrete.primitive[0].name)
-            } else if (concrete.kind == ConcreteTypeKind.Any) {
-                MakeType.top
-            } else // if (concrete.kind == ConcreteTypeKind.Nothing) {
-                MakeType.bottom
-            }
-    }
+    // def coalesce_type(simple: SimpleType, polarity: bool): Type = {
+    //     if (simple.kind == SimpleTypeKind.Variable) {
+    //         val tv = simple.variable[0]
+    //         val bound = if (polarity) tv.lower_bound() else tv.upper_bound()
+    //         val bound_type = coalesce_type(bound, polarity)
+    //         if (polarity && bound.is_nothing() || bound.is_any()) tv.as_type_var()
+    //         else if (polarity) MakeType.union(tv.as_type_var(), bound_type)
+    //         else MakeType.intersection(tv.as_type_var(), bound_type)
+    //     } else {
+    //         val concrete = simple.concrete[0]
+    //         if (concrete.kind == ConcreteTypeKind.Function) {
+    //             MakeType.function(
+    //                 concrete.function[0].symbol,
+    //                 coalesce_types(concrete.function[0].params, !polarity),
+    //                 coalesce_type(concrete.function[0].returnType, polarity)
+    //             )
+    //         } else if (concrete.kind == ConcreteTypeKind.Record) {
+    //             MakeType.record(concrete.record[0].symbol, coalesce_record(concrete.record[0], polarity))
+    //         } else if (concrete.kind == ConcreteTypeKind.Primitive) {
+    //             MakeType.primitive(concrete.primitive[0].name)
+    //         } else if (concrete.kind == ConcreteTypeKind.Any) {
+    //             MakeType.top
+    //         } else // if (concrete.kind == ConcreteTypeKind.Nothing) {
+    //             MakeType.bottom
+    //         }
+    // }
 
-    def coalesce_types(simple_types: Array<SimpleType>, polarity: bool): Array<Type> = {
-        val types = new Type[simple_types.Length]
-        for (x <- 0 to simple_types.Length) {
-            types[x] = coalesce_type(simple_types[x], polarity)
-        }
-        types
-    }
+    // def coalesce_types(simple_types: Array<SimpleType>, polarity: bool): Array<Type> = {
+    //     val types = new Type[simple_types.Length]
+    //     for (x <- 0 to simple_types.Length) {
+    //         types[x] = coalesce_type(simple_types[x], polarity)
+    //     }
+    //     types
+    // }
 
-    def coalesce_record(record: Record, polarity: bool): RecordType = {
-        val fields = new RecordTypeField[record.fields.Length]
-        for (x <- 0 to record.fields.Length) {
-            fields[x] = coalesce_record_field(record.fields[x], polarity)
-        }
-        new RecordType(fields)
-    }
+    // def coalesce_record(record: Record, polarity: bool): RecordType = {
+    //     val fields = new RecordTypeField[record.fields.Length]
+    //     for (x <- 0 to record.fields.Length) {
+    //         fields[x] = coalesce_record_field(record.fields[x], polarity)
+    //     }
+    //     new RecordType(fields)
+    // }
 
-    def coalesce_record_field(field: RecordField, polarity: bool): RecordTypeField =
-        new RecordTypeField(field.name, coalesce_type(field.type, polarity))
+    // def coalesce_record_field(field: RecordField, polarity: bool): RecordTypeField =
+    //     new RecordTypeField(field.name, coalesce_type(field.type, polarity))
 }

@@ -3,7 +3,7 @@ class Diagnostic(location: TextLocation, message: string) {
 }
 
 class DiagnosticBag() {
-    var _size = 0
+    var _size: int = 0
     var _items: Array<Diagnostic> = new Diagnostic[0]
 
     def report(location: TextLocation, message: string): unit = add(new Diagnostic(location, message))
@@ -56,7 +56,7 @@ object MakeResult {
 
 class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
     var _position: int = 0
-    var debug = false
+    var debug: bool = false
 
     def peek(position: int): char = source_file.get(position)
 
@@ -67,7 +67,7 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
         if (debug) {
             println("accepting: " + string(current()))
         } else ()
-        
+
         _position = _position + 1
     }
 
@@ -76,7 +76,7 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
     def is_ident_start(c: char): bool = is_letter(c) || c == '_'
     def is_ident(c: char): bool = is_letter(c) || is_digit(c) || c == '_'
     def is_eol(c: char): bool = c == '\n' || c == '\r'
-    def is_whitespace(c: char): bool = 
+    def is_whitespace(c: char): bool =
         c == '\u0009' || c == '\u000A' || c == '\u000B' || c == '\u000C' || c == '\u000D' || c == '\u0020' ||
         c == '\u0020' || c == '\u0085' || c == '\u00A0' || c == '\u1680' || c == '\u2000' || c == '\u2001' ||
         c == '\u2002' || c == '\u2002' || c == '\u2002' || c == '\u2003' || c == '\u2003' || c == '\u2003' ||
@@ -87,8 +87,8 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
     def is_non_nl_whitespace(c: char): bool = !is_eol(c) && is_whitespace(c)
 
     def is_start_token(c: char): bool =
-        c == '-' || c == ',' || c == ':' || c == '!' || c == '.' || c == '(' || c == ')' || c == '[' || c == ']' || 
-        c == '{' || c == '}' || c == '*' || c == '/' || c == '\'' || c == '\"' || c == '&' || c == '+' || c == '<' || 
+        c == '-' || c == ',' || c == ':' || c == '!' || c == '.' || c == '(' || c == ')' || c == '[' || c == ']' ||
+        c == '{' || c == '}' || c == '*' || c == '/' || c == '\'' || c == '\"' || c == '&' || c == '+' || c == '<' ||
         c == '=' || c == '>' || c == '|'
 
     def is_invalid_token_trivia(c: char): bool = c != '\0' && !is_start_token(c) && !is_digit(c) && !is_ident_start(c)
@@ -278,7 +278,7 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
     def scan_char(): SimpleToken = {
         val start = _position
         next() // open '
-        
+
         val curr = current()
         val value = if (curr == '\r' || curr == '\n' || curr == '\0') {
             diagnostics.report_unterminated_char(new TextLocation(source_file, new TextSpan(start, 1)))
@@ -375,7 +375,7 @@ class Scanner(source_file: SourceFile, diagnostics: DiagnosticBag) {
 
             break
         }
-        
+
         trivia.to_array()
     }
 
