@@ -82,7 +82,7 @@ object AstPrinter {
         print_template(node.template)
     }
 
-    def print_optional_template(node: Array<TemplateSyntax>): unit = 
+    def print_optional_template(node: Array<TemplateSyntax>): unit =
         if (node.Length > 0) print_template(node[0]) else ()
 
     def print_template(node: TemplateSyntax): unit = {
@@ -124,7 +124,7 @@ object AstPrinter {
         print_tokens(node.commaToken)
     }
 
-    def print_optional_type_annotation(node: Array<TypeAnnotationSyntax>): unit = 
+    def print_optional_type_annotation(node: Array<TypeAnnotationSyntax>): unit =
         if (node.Length > 0) print_type_annotation(node[0]) else ()
 
     def print_type_annotation(node: TypeAnnotationSyntax): unit = {
@@ -132,7 +132,7 @@ object AstPrinter {
         print_name(node.type)
     }
 
-    def print_optional_function_body(node: Array<FunctionBodySyntax>): unit = 
+    def print_optional_function_body(node: Array<FunctionBodySyntax>): unit =
         if (node.Length > 0) print_function_body(node[0]) else ()
 
     def print_function_body(node: FunctionBodySyntax): unit = {
@@ -259,7 +259,7 @@ object AstPrinter {
     def print_member_access_expression(node: MemberAccessExpressionSyntax): unit = {
         print_expression(node.left)
         print_token(node.dotToken)
-        print_expression(node.right)
+        print_identifier_name(node.right, ColorPalette.Identifier)
     }
     def print_new_expression(node: NewExpressionSyntax): unit = {
         print_token(node.newKeyword)

@@ -174,7 +174,7 @@ class Checker(root: Symbol) {
         if (node.is_decl()) {
             get_type_of_declaration(node.declaration[0], scope)
         } else {
-            get_type_of_expression(node.expression[0])
+            get_type_of_expression(node.expression[0], scope)
         }
     }
 
@@ -202,15 +202,25 @@ class Checker(root: Symbol) {
         ErrorType
     }
 
+    var reentrant = 0
     def get_type_of_class_declaration(cls: ClassDeclarationSyntax, scope: Scope): Type = {
-        val symbols = scope.symbols()
-        val fields = new RecordTypeField[symbols.Length]
-        for (x <- 0 to symbols.Length) {
-            val fieldType = get_type_of_symbol(symbols[x])
-            fields[x] = new RecordTypeField(symbols[x].name, fieldType)
-        }
+        if (reentrant > 0) {
+            printLocation(cls.identifier.location)
+            panic("get_type_of_class_declaration reentrant on " + cls.identifier.text)
+            ErrorType
+        } else {
+            reentrant = reentrant + 1
+            val symbols = scope.symbols()
+            val fields = new RecordTypeField[symbols.Length]
+            for (x <- 0 to symbols.Length) {
+                println("Getting type of symbol: " + symbols[x].name)
+                val fieldType = get_type_of_symbol(symbols[x])
+                fields[x] = new RecordTypeField(symbols[x].name, fieldType)
+            }
 
-        MakeType.record(scope.parent.symbol[0], new RecordType(fields))
+            reentrant = reentrant - 1
+            MakeType.record(scope.parent.symbol[0], new RecordType(fields))
+        }
     }
 
     def get_type_of_method_declaration(decl: FunctionDeclarationSyntax, scope: Scope): Type = {
@@ -222,7 +232,7 @@ class Checker(root: Symbol) {
         val returnType = if (decl.typeAnnotation.Length > 0) {
             get_type_of_type_annotation(decl.typeAnnotation[0], scope)
         } else if (decl.body.Length > 0) {
-            get_type_of_expression(decl.body[0].expression)
+            get_type_of_expression(decl.body[0].expression, scope)
         } else {
             ErrorType
         }
@@ -238,22 +248,22 @@ class Checker(root: Symbol) {
         if (decl.typeAnnotation.Length > 0) {
             get_type_of_type_annotation(decl.typeAnnotation[0], scope)
         } else {
-            get_type_of_expression(decl.expression)
+            get_type_of_expression(decl.expression, scope)
         }
     }
 
-    def get_type_of_expression(expr: ExpressionSyntax): Type = {
+    def get_type_of_expression(expr: ExpressionSyntax, scope: Scope): Type = {
         val node = MakeNode.expr(expr)
         val links = get_node_links(node)
         if (links.has_type()) {
             links.get_type()
         } else {
             val type = if (expr.kind == SyntaxKind.ArrayCreationExpression) {
-                get_type_of_array_creation_expression(expr.arrayCreationExpression[0])
+                get_type_of_array_creation_expression(expr.arrayCreationExpression[0], scope)
             } else if (expr.kind == SyntaxKind.AssignmentExpression) {
                 get_type_of_assignment_expression(expr.assignmentExpression[0])
             } else if (expr.kind == SyntaxKind.BinaryExpression) {
-                get_type_of_binary_expression(expr.binaryExpression[0])
+                get_type_of_binary_expression(expr.binaryExpression[0], scope)
             } else if (expr.kind == SyntaxKind.BlockExpression) {
                 get_type_of_block_expression(expr.blockExpression[0])
             } else if (expr.kind == SyntaxKind.CallExpression) {
@@ -273,9 +283,9 @@ class Checker(root: Symbol) {
             } else if (expr.kind == SyntaxKind.MemberAccessExpression) {
                 get_type_of_member_access_expression(expr.memberAccessExpression[0])
             } else if (expr.kind == SyntaxKind.NewExpression) {
-                get_type_of_new_expression(expr.newExpression[0])
+                get_type_of_new_expression(expr.newExpression[0], scope)
             } else if (expr.kind == SyntaxKind.UnaryExpression) {
-                get_type_of_unary_expression(expr.unaryExpression[0])
+                get_type_of_unary_expression(expr.unaryExpression[0], scope)
             } else if (expr.kind == SyntaxKind.UnitExpression) {
                 get_type_of_unit_expression(expr.unitExpression[0])
             } else if (expr.kind == SyntaxKind.WhileExpression) {
@@ -288,15 +298,16 @@ class Checker(root: Symbol) {
         }
     }
 
-    def get_type_of_array_creation_expression(expr: ArrayCreationExpressionSyntax): Type = {
-        panic("get_type_of_array_creation_expression")
-        ErrorType
-    }
+    def get_type_of_array_creation_expression(expr: ArrayCreationExpressionSyntax, scope: Scope): Type =
+        MakeType.array(get_type_of_name(expr.name, scope))
+
     def get_type_of_assignment_expression(expr: AssignmentExpressionSyntax): Type = {
         panic("get_type_of_assignment_expression")
         ErrorType
     }
-    def get_type_of_binary_expression(expr: BinaryExpressionSyntax): Type = {
+    def get_type_of_binary_expression(expr: BinaryExpressionSyntax, scope: Scope): Type = {
+        val lhs = get_type_of_expression(expr.left, scope)
+        val rhs = get_type_of_expression(expr.right, scope)
         panic("get_type_of_binary_expression")
         ErrorType
     }
@@ -329,25 +340,48 @@ class Checker(root: Symbol) {
         ErrorType
     }
     def get_type_of_literal_expression(expr: LiteralExpressionSyntax): Type = {
-        panic("get_type_of_literal_expression")
-        ErrorType
+        if (expr.value.kind == SyntaxTokenValueKind.Boolean) BoolType
+        else if (expr.value.kind == SyntaxTokenValueKind.String) StringType
+        else if (expr.value.kind == SyntaxTokenValueKind.Character) CharType
+        else if (expr.value.kind == SyntaxTokenValueKind.Number) IntType
+        else {
+            panic("get_type_of_literal_expression of kind: " + string(expr.value.kind))
+            ErrorType
+        }
     }
+
     def get_type_of_member_access_expression(expr: MemberAccessExpressionSyntax): Type = {
         panic("get_type_of_member_access_expression")
         ErrorType
     }
-    def get_type_of_new_expression(expr: NewExpressionSyntax): Type = {
-        panic("get_type_of_new_expression")
-        ErrorType
+
+    def get_type_of_new_expression(expr: NewExpressionSyntax, scope: Scope): Type =
+        get_type_of_name(expr.identifier, scope)
+
+    def get_type_of_unary_expression(expr: UnaryExpressionSyntax, scope: Scope): Type = {
+        val rhs = get_type_of_expression(expr.expression, scope)
+        if (expr.operator.text == "-") {
+            if (rhs.kind == TypeKind.Primitive && rhs.primitive[0].name == "int") {
+                IntType
+            } else if (rhs.kind == TypeKind.Primitive) {
+                printLocation(expr.operator.location)
+                panic("get_type_of_unary_expression: unknown primitive " + rhs.primitive[0].name)
+                ErrorType
+            } else {
+                panic("get_type_of_unary_expression: unknown rhs.kind " + string(rhs.kind))
+                ErrorType
+            }
+        } else {
+            panic("get_type_of_unary_expression: unknown operator " + expr.operator.text)
+            ErrorType
+        }
     }
-    def get_type_of_unary_expression(expr: UnaryExpressionSyntax): Type = {
-        panic("get_type_of_unary_expression")
-        ErrorType
-    }
+
     def get_type_of_unit_expression(expr: UnitExpressionSyntax): Type = {
         panic("get_type_of_unit_expression")
         ErrorType
     }
+
     def get_type_of_while_expression(expr: WhileExpressionSyntax): Type = {
         panic("get_type_of_while_expression")
         ErrorType
@@ -494,6 +528,47 @@ class Checker(root: Symbol) {
     def get_symbol_links(symbol: Symbol): SymbolLinks = {
         val id = get_symbol_id(symbol)
         symbol_links[id]
+    }
+
+
+    def printLocation(location: TextLocation): unit = {
+        val span = location.span
+        val source_file = location.source_file
+
+        for (currrent_line <- location.start_line to location.end_line + 1) {
+            val line = source_file.get_line(currrent_line)
+            val start_in_current = source_file.get_line_index(span.start) == currrent_line
+            val end_in_current = source_file.get_line_index(span.end) == currrent_line
+
+            val prefix_end =
+                if (start_in_current) span.start
+                else line.start
+
+            val suffix_start =
+                if (end_in_current) span.end
+                else line.end
+
+            val prefix_span = TextSpanFactory.from_bounds(line.start, prefix_end)
+            val error_span = TextSpanFactory.from_bounds(prefix_end, suffix_start)
+            val suffix_span = TextSpanFactory.from_bounds(suffix_start, line.end)
+
+            val prefix = source_file.to_string(prefix_span)
+            val error = source_file.to_string(error_span)
+            val suffix = source_file.to_string(suffix_span)
+
+            print(prefix)
+            print(ANSI.foreground_color("e06c75"))
+            print(error)
+            print(ANSI.Clear)
+            println(suffix)
+
+            for(c <- 0 to (prefix_span.length)) {
+                print('-')
+            }
+            println('^')
+        }
+
+        println()
     }
 
     // // convert an inferred SimpleType into the immutable type representation

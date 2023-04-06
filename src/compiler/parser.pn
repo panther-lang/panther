@@ -43,7 +43,7 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
             {
                 break
             } else {
-                
+
             }
         }
         tokenList.tokens()
@@ -134,6 +134,8 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
             expression.indexExpression[0].closeBracket.is_statement_terminator()
         } else if (kind == SyntaxKind.UnitExpression) {
             expression.unitExpression[0].closeParen.is_statement_terminator()
+        } else if (kind == SyntaxKind.MemberAccessExpression) {
+            expression.memberAccessExpression[0].right.identifier.is_statement_terminator()
         } else if (kind == SyntaxKind.AssignmentExpression) {
             has_statement_terminator(expression.assignmentExpression[0].right)
         } else if (kind == SyntaxKind.BinaryExpression) {
@@ -142,8 +144,6 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
             has_statement_terminator(expression.ifExpression[0].elseExpr)
         } else if (kind == SyntaxKind.ForExpression) {
             has_statement_terminator(expression.forExpression[0].body)
-        } else if (kind == SyntaxKind.MemberAccessExpression) {
-            has_statement_terminator(expression.memberAccessExpression[0].right)
         } else if (kind == SyntaxKind.UnaryExpression) {
             has_statement_terminator(expression.unaryExpression[0].expression)
         } else if (kind == SyntaxKind.WhileExpression) {
@@ -154,11 +154,15 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
         }
     }
 
-    def parse_identifier_name(): ExpressionSyntax = {
+    def parse_identifier_name(): IdentifierNameSyntax = {
         debug_print("parse_identifier_name")
         val identifier = accept(SyntaxKind.IdentifierToken)
 
-        val name = new IdentifierNameSyntax(identifier)
+        new IdentifierNameSyntax(identifier)
+    }
+
+    def parse_identifier_name_expression(): ExpressionSyntax = {
+        val name = parse_identifier_name()
 
         new ExpressionSyntax(
             SyntaxKind.IdentifierName,
@@ -543,7 +547,10 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
     def parse_literal_expression(): ExpressionSyntax = {
         debug_print("parse_literal_expression")
         val token = accept()
-        val literal = new LiteralExpressionSyntax(token, MakeSyntaxTokenValue.string(token.text))
+        val tokenValue = if (token.kind == SyntaxKind.NumberToken) MakeSyntaxTokenValue.number(int(token.text))
+                         else if (token.kind == SyntaxKind.CharToken) MakeSyntaxTokenValue.char(token.text[0])
+                         else MakeSyntaxTokenValue.string(token.text)
+        val literal = new LiteralExpressionSyntax(token, tokenValue)
 
         new ExpressionSyntax(
             SyntaxKind.LiteralExpression,
@@ -828,7 +835,7 @@ class Parser(source_file: SourceFile, diagnostics: DiagnosticBag) {
         } else if (kind == SyntaxKind.OpenBraceToken) {
             parse_block_expression()
         } else if (kind == SyntaxKind.IdentifierToken) {
-            parse_identifier_name()
+            parse_identifier_name_expression()
         } else if (kind == SyntaxKind.OpenParenToken) {
             parse_group_or_unit_expression()
         } else if (kind == SyntaxKind.NumberToken || kind == SyntaxKind.CharToken || kind == SyntaxKind.StringToken) {

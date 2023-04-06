@@ -15,13 +15,28 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     var container_has_this: bool = false
 
     val checker = new Checker(root)
+    val nl = "\n"
 
     def emit(): unit = {
         emit_symbol(root)
-        File.WriteAllText(file, "// Types:\n" + sections[EmitSection.Types] +
-                                "\n// Methods:\n" + sections[EmitSection.Methods] +
-                                "\n// Declarations: \n" + sections[EmitSection.Declarations])
+
+        val text =
+            banner_comment("forward references") +
+            sections[EmitSection.Header] + nl +
+            banner_comment("types") +
+            sections[EmitSection.Types] + nl +
+            banner_comment("DECLARATIONS") +
+            sections[EmitSection.Declarations] + nl +
+            banner_comment("METHODS") +
+            sections[EmitSection.Methods]
+
+        File.WriteAllText(file, text)
     }
+
+    def banner_comment(word: string): string =
+        "/**\n" +
+        " *  " + word + "\n" +
+        " */\n"
 
     def emit_symbol(symbol: Symbol): unit = {
         if (symbol.kind == SymbolKind.Root) {
@@ -189,8 +204,8 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
         } else if (typ.kind == TypeKind.Record) {
             emit(typ.symbol[0].name, section)
         } else if (typ.kind == TypeKind.Array) {
+            emit("array_", section)
             emit_type(typ.array[0].inner, section)
-            emit("[]", section)
         } else {
             emit_panic("emit_type: " + string(typ.kind))
         }

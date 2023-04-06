@@ -8,14 +8,14 @@ class DiagnosticBag() {
 
     def report(location: TextLocation, message: string): unit = add(new Diagnostic(location, message))
 
-    def report_bad_character(location: TextLocation, value: char) = report(location, "Invalid character in input: " + string(value))
-    def report_empty_char_literal(location: TextLocation) = report(location, "Empty character literal")
-    def report_unterminated_block_comment(location: TextLocation) = report(location, "Unterminated block comment")
-    def report_unterminated_char(location: TextLocation) = report(location, "Unterminated character literal")
-    def report_unterminated_string(location: TextLocation) = report(location, "Unterminated string literal")
-    def report_unexpected_token(location: TextLocation, currentKind: int, expectedKind: int) =
+    def report_bad_character(location: TextLocation, value: char): unit = report(location, "Invalid character in input: " + string(value))
+    def report_empty_char_literal(location: TextLocation): unit = report(location, "Empty character literal")
+    def report_unterminated_block_comment(location: TextLocation): unit = report(location, "Unterminated block comment")
+    def report_unterminated_char(location: TextLocation): unit = report(location, "Unterminated character literal")
+    def report_unterminated_string(location: TextLocation): unit = report(location, "Unterminated string literal")
+    def report_unexpected_token(location: TextLocation, currentKind: int, expectedKind: int): unit =
         report(location, "Unexpected token " + SyntaxFacts.get_kind_name(currentKind) + ", expected " + SyntaxFacts.get_kind_name(expectedKind))
-    def report_invalid_escape_sequence(location: TextLocation, current: char) =
+    def report_invalid_escape_sequence(location: TextLocation, current: char): unit =
         report(location, "Invalid character in escape sequence: " + string(current))
 
     def ensure_capacity(count: int): unit = {

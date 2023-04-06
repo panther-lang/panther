@@ -92,7 +92,7 @@ class LiteralExpressionSyntax(token: SyntaxToken, value: SyntaxTokenValue)
 class MemberAccessExpressionSyntax(
     left: ExpressionSyntax,
     dotToken: SyntaxToken,
-    right: ExpressionSyntax
+    right: IdentifierNameSyntax
 )
 class NewExpressionSyntax(
     newKeyword: SyntaxToken,
@@ -222,7 +222,7 @@ class NamespaceDeclarationSyntax(namespaceKeyword: SyntaxToken, name: NameSyntax
     members [0..n]
 */
 class CompilationUnitSyntax(namespaceDeclaration: Array<NamespaceDeclarationSyntax>, usings: Array<UsingDirectiveSyntax>, members: Array<MemberSyntax>, endToken: SyntaxToken) {
-    val kind = SyntaxKind.CompilationUnit
+    val kind: int = SyntaxKind.CompilationUnit
 }
 
 

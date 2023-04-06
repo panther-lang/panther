@@ -261,7 +261,7 @@ class Binder(root: Symbol, diagnostics: DiagnosticBag) {
     }
     def bind_member_access_expression(node: MemberAccessExpressionSyntax, scope: Scope): unit = {
         bind_expression(node.left, scope)
-        bind_expression(node.right, scope)
+        // bind_expression(node.right, scope)
     }
     def bind_new_expression(node: NewExpressionSyntax, scope: Scope): unit = {
         get_name(node.identifier)
