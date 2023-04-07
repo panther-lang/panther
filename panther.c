@@ -198,7 +198,7 @@ struct ArrayCreationExpressionSyntax {
   SyntaxToken newKeyword;
   NameSyntax name;
   SyntaxToken openBracket;
-  array_unresolved arrayRank;
+  array_ExpressionSyntax arrayRank;
   SyntaxToken closeBracket;
   array_ArrayInitializerExpressionSyntax initializer;
 };
@@ -213,7 +213,7 @@ struct GenericNameSyntax {
 };
 
 struct QualifiedNameSyntax {
-  unresolved left;
+  NameSyntax left;
   SyntaxToken dotToken;
   SimpleNameSyntax right;
 };
@@ -240,28 +240,28 @@ struct ExpressionListSyntax {
 };
 
 struct AssignmentExpressionSyntax {
-  unresolved left;
+  ExpressionSyntax left;
   SyntaxToken equals;
-  unresolved right;
+  ExpressionSyntax right;
 };
 
 struct BinaryExpressionSyntax {
-  unresolved left;
+  ExpressionSyntax left;
   SyntaxToken operator;
-  unresolved right;
+  ExpressionSyntax right;
 };
 
 struct BlockExpressionSyntax {
   SyntaxToken openBrace;
   array_StatementSyntax statements;
-  array_unresolved expression;
+  array_ExpressionSyntax expression;
   SyntaxToken closeBrace;
 };
 
 struct CallExpressionSyntax {
-  unresolved name;
+  ExpressionSyntax name;
   SyntaxToken openParen;
-  unresolved arguments;
+  ExpressionListSyntax arguments;
   SyntaxToken closeParen;
 };
 
@@ -270,33 +270,33 @@ struct ForExpressionSyntax {
   SyntaxToken openParen;
   SyntaxToken identifier;
   SyntaxToken arrow;
-  unresolved fromExpr;
+  ExpressionSyntax fromExpr;
   SyntaxToken toKeyword;
-  unresolved toExpr;
+  ExpressionSyntax toExpr;
   SyntaxToken closeParen;
-  unresolved body;
+  ExpressionSyntax body;
 };
 
 struct GroupExpressionSyntax {
   SyntaxToken openParen;
-  unresolved expression;
+  ExpressionSyntax expression;
   SyntaxToken closeParen;
 };
 
 struct IfExpressionSyntax {
   SyntaxToken ifKeyword;
   SyntaxToken openParen;
-  unresolved condition;
+  ExpressionSyntax condition;
   SyntaxToken closeParen;
-  unresolved then;
+  ExpressionSyntax then;
   SyntaxToken elseKeyword;
-  unresolved elseExpr;
+  ExpressionSyntax elseExpr;
 };
 
 struct IndexExpressionSyntax {
-  unresolved left;
+  ExpressionSyntax left;
   SyntaxToken openBracket;
-  unresolved index;
+  ExpressionSyntax index;
   SyntaxToken closeBracket;
 };
 
@@ -306,7 +306,7 @@ struct LiteralExpressionSyntax {
 };
 
 struct MemberAccessExpressionSyntax {
-  unresolved left;
+  ExpressionSyntax left;
   SyntaxToken dotToken;
   IdentifierNameSyntax right;
 };
@@ -315,13 +315,13 @@ struct NewExpressionSyntax {
   SyntaxToken newKeyword;
   NameSyntax identifier;
   SyntaxToken openParen;
-  unresolved arguments;
+  ExpressionListSyntax arguments;
   SyntaxToken closeParen;
 };
 
 struct UnaryExpressionSyntax {
   SyntaxToken operator;
-  unresolved expression;
+  ExpressionSyntax expression;
 };
 
 struct UnitExpressionSyntax {
@@ -332,9 +332,9 @@ struct UnitExpressionSyntax {
 struct WhileExpressionSyntax {
   SyntaxToken whileKeyword;
   SyntaxToken openParen;
-  unresolved left;
+  ExpressionSyntax left;
   SyntaxToken closeParen;
-  unresolved body;
+  ExpressionSyntax body;
 };
 
 struct ExpressionSyntax {
@@ -370,7 +370,7 @@ struct ParameterSyntax {
 };
 
 struct TypeArgumentItemSyntax {
-  unresolved name;
+  NameSyntax name;
   array_SyntaxToken separator;
 };
 
@@ -421,7 +421,7 @@ struct VariableDeclarationStatementSyntax {
   SyntaxToken identifier;
   array_TypeAnnotationSyntax typeAnnotation;
   SyntaxToken equalToken;
-  unresolved expression;
+  ExpressionSyntax expression;
 };
 
 struct BreakStatementSyntax {
@@ -433,7 +433,7 @@ struct ContinueStatementSyntax {
 };
 
 struct ExpressionStatementSyntax {
-  unresolved expression;
+  ExpressionSyntax expression;
 };
 
 struct StatementSyntax {
@@ -508,23 +508,23 @@ struct SyntaxTree {
 struct ScopeParent {
   int kind;
   array_Symbol symbol;
-  array_unresolved scope;
+  array_Scope scope;
 };
 
 struct Scope {
   ScopeParent parent;
   string note;
   int _symbol_count;
-  array_unresolved _symbols;
+  array_Symbol _symbols;
   int _scope_count;
-  array_unresolved _scopes;
+  array_Scope _scopes;
 };
 
 struct Symbol {
   int kind;
   string name;
   TextLocation location;
-  array_unresolved _parent;
+  array_Symbol _parent;
   array_Declaration _declarations;
   int _declaration_count;
   int id;
@@ -533,7 +533,7 @@ struct Symbol {
 
 struct SymbolResult {
   int kind;
-  array_unresolved symbol;
+  array_Symbol symbol;
 };
 
 struct Binder {
@@ -561,12 +561,12 @@ struct UnionType {
 };
 
 struct ArrayType {
-  unresolved inner;
+  Type inner;
 };
 
 struct IntersectionType {
-  unresolved left;
-  unresolved right;
+  Type left;
+  Type right;
 };
 
 struct PrimitiveType {
@@ -579,8 +579,8 @@ struct TypeVariable {
 };
 
 struct FunctionType {
-  array_unresolved parameters;
-  unresolved returnType;
+  array_Type parameters;
+  Type returnType;
 };
 
 struct RecordType {
@@ -589,7 +589,7 @@ struct RecordType {
 
 struct RecordTypeField {
   string name;
-  unresolved type;
+  Type type;
 };
 
 struct SymbolLinks {
@@ -615,6 +615,7 @@ struct Checker {
   array_SymbolLinks symbol_links;
   int last_node_id;
   array_NodeLinks node_links;
+  int rt;
 };
 
 struct Emitter {

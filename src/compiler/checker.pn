@@ -151,6 +151,62 @@ class Checker(root: Symbol) {
         }
     }
 
+    var rt = 0
+    def resolve_record_type(record: RecordType): unit = {
+        rt = rt + 1
+        for (i <- 0 to record.fields.Length) {
+            // limit resolution depth
+            if (rt < 8) {
+                resolve_type(record.fields[i].type)
+            } else {}
+        }
+        rt = rt - 1
+    }
+
+
+    def resolve_function_type(func: FunctionType): unit = {
+        for (i <- 0 to func.parameters.Length) {
+            resolve_type(func.parameters[i])
+        }
+        resolve_type(func.returnType)
+    }
+
+    def resolve_array_type(array: ArrayType): unit =
+        resolve_type(array.inner)
+
+    def resolve_unresolved_type(typ: Type): unit = {
+        val symbol = typ.symbol[0]
+        val resolved = get_type_of_symbol(symbol)
+        if (resolved.kind == TypeKind.Unresolved) {
+            // noop
+        } else {
+            println("updating type")
+            typ.kind = resolved.kind
+            typ.union = resolved.union
+            typ.intersection = resolved.intersection
+            typ.primitive = resolved.primitive
+            typ.typeVariable = resolved.typeVariable
+            typ.function = resolved.function
+            typ.record = resolved.record
+            typ.array = resolved.array
+        }
+    }
+
+    def resolve_type(typ: Type): unit = {
+        if (typ.kind == TypeKind.Primitive) {
+        } else if (typ.kind == TypeKind.Record) {
+            resolve_record_type(typ.record[0])
+        } else if (typ.kind == TypeKind.Array) {
+            resolve_array_type(typ.array[0])
+        } else if (typ.kind == TypeKind.Function) {
+            resolve_function_type(typ.function[0])
+        } else if (typ.kind == TypeKind.Unresolved) {
+            resolve_unresolved_type(typ)
+        } else {
+            panic("resolve_type of kind " + string(typ.kind))
+        }
+    }
+
     def get_type_of_symbol(symbol: Symbol): Type = {
         val links = get_symbol_links(symbol)
         if (links.has_type()) {
@@ -172,6 +228,8 @@ class Checker(root: Symbol) {
                     links.typing = false
                     node_links.set_type(type)
                     links.set_type(type)
+                    resolve_type(type)
+                    type
                 }
             }
         } else {
