@@ -151,37 +151,34 @@ class Checker(root: Symbol) {
         }
     }
 
-    var rt = 0
-    def resolve_record_type(record: RecordType): unit = {
-        rt = rt + 1
+    def resolve_record_type(record: RecordType): bool = {
+        var resolved = true
         for (i <- 0 to record.fields.Length) {
-            // limit resolution depth
-            if (rt < 8) {
-                resolve_type(record.fields[i].type)
-            } else {}
+            resolved = resolved && resolve_type(record.fields[i].type)
         }
-        rt = rt - 1
+        resolved
     }
 
-
-    def resolve_function_type(func: FunctionType): unit = {
+    def resolve_function_type(func: FunctionType): bool = {
+        var resolved = true
         for (i <- 0 to func.parameters.Length) {
-            resolve_type(func.parameters[i])
+            resolved = resolved && resolve_type(func.parameters[i])
         }
-        resolve_type(func.returnType)
+        resolved && resolve_type(func.returnType)
     }
 
-    def resolve_array_type(array: ArrayType): unit =
+    def resolve_array_type(array: ArrayType): bool =
         resolve_type(array.inner)
 
-    def resolve_unresolved_type(typ: Type): unit = {
+    def resolve_unresolved_type(typ: Type): bool = {
         val symbol = typ.symbol[0]
         val resolved = get_type_of_symbol(symbol)
         if (resolved.kind == TypeKind.Unresolved) {
             // noop
+            false
         } else {
-            println("updating type")
             typ.kind = resolved.kind
+            typ.resolved = resolved.resolved
             typ.union = resolved.union
             typ.intersection = resolved.intersection
             typ.primitive = resolved.primitive
@@ -189,22 +186,37 @@ class Checker(root: Symbol) {
             typ.function = resolved.function
             typ.record = resolved.record
             typ.array = resolved.array
+            typ.resolved
         }
     }
 
-    def resolve_type(typ: Type): unit = {
-        if (typ.kind == TypeKind.Primitive) {
+    var rt = 0
+    def resolve_type(typ: Type): bool = {
+        rt = rt + 1
+        val start = typ.resolved
+        if (rt > 9) {
+            // panic("resolve_type depth exceeded maximum of 3")
+        } else if (typ.resolved || typ.kind == TypeKind.Primitive) {
         } else if (typ.kind == TypeKind.Record) {
-            resolve_record_type(typ.record[0])
+            typ.resolved = resolve_record_type(typ.record[0])
         } else if (typ.kind == TypeKind.Array) {
-            resolve_array_type(typ.array[0])
+            typ.resolved = resolve_array_type(typ.array[0])
         } else if (typ.kind == TypeKind.Function) {
-            resolve_function_type(typ.function[0])
+            typ.resolved = resolve_function_type(typ.function[0])
         } else if (typ.kind == TypeKind.Unresolved) {
-            resolve_unresolved_type(typ)
+            typ.resolved = resolve_unresolved_type(typ)
+
+            println("updating type at depth " + string(rt) + " resolved: " + string(typ.resolved))
         } else {
             panic("resolve_type of kind " + string(typ.kind))
         }
+        if (typ.resolved == start) {
+
+        } else {
+            println("type resolved: " + string(typ.resolved))
+        }
+        rt = rt - 1
+        typ.resolved
     }
 
     def get_type_of_symbol(symbol: Symbol): Type = {
@@ -228,6 +240,7 @@ class Checker(root: Symbol) {
                     links.typing = false
                     node_links.set_type(type)
                     links.set_type(type)
+                    println("resolving type for " + symbol.name)
                     resolve_type(type)
                     type
                 }
@@ -274,7 +287,6 @@ class Checker(root: Symbol) {
         val symbols = scope.symbols()
         val fields = new RecordTypeField[symbols.Length]
         for (x <- 0 to symbols.Length) {
-            println("Getting type of symbol: " + symbols[x].name)
             val fieldType = get_type_of_symbol(symbols[x])
             fields[x] = new RecordTypeField(symbols[x].name, fieldType)
         }

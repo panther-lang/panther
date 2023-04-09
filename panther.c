@@ -545,6 +545,7 @@ struct Binder {
 
 struct Type {
   int kind;
+  bool resolved;
   array_Symbol symbol;
   array_UnionType union;
   array_IntersectionType intersection;

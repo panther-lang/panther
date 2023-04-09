@@ -4,6 +4,7 @@
 
 class Type(
     kind: int,
+    resolved: bool,
     symbol: Array<Symbol>,
     union: Array<UnionType>,
     intersection: Array<IntersectionType>,
@@ -39,6 +40,7 @@ class RecordType(fields: Array<RecordTypeField>)
 object MakeType {
     val top: Type = new Type(
         TypeKind.Any,
+        true,
         new Symbol[0],
         new UnionType[0],
         new IntersectionType[0],
@@ -51,6 +53,7 @@ object MakeType {
 
     val bottom: Type = new Type(
         TypeKind.Nothing,
+        true,
         new Symbol[0],
         new UnionType[0],
         new IntersectionType[0],
@@ -63,6 +66,7 @@ object MakeType {
 
     def primitive(name: string): Type = new Type(
         TypeKind.Primitive,
+        true,
         new Symbol[0],
         new UnionType[0],
         new IntersectionType[0],
@@ -73,20 +77,28 @@ object MakeType {
         new ArrayType[0]
     )
 
-    def function(symbol: Symbol, parameters: Array<Type>, returnType: Type): Type = new Type(
-        TypeKind.Function,
-        new Symbol[] { symbol },
-        new UnionType[0],
-        new IntersectionType[0],
-        new PrimitiveType[0],
-        new TypeVariable[0],
-        new FunctionType[] { new FunctionType(parameters, returnType) },
-        new RecordType[0],
-        new ArrayType[0]
-    )
+    def function(symbol: Symbol, parameters: Array<Type>, returnType: Type): Type = {
+        var resolved = returnType.resolved
+        for (x <- 0 to parameters.Length) {
+            resolved = resolved && parameters[x].resolved
+        }
+        new Type(
+            TypeKind.Function,
+            resolved,
+            new Symbol[] { symbol },
+            new UnionType[0],
+            new IntersectionType[0],
+            new PrimitiveType[0],
+            new TypeVariable[0],
+            new FunctionType[] { new FunctionType(parameters, returnType) },
+            new RecordType[0],
+            new ArrayType[0]
+        )
+    }
 
     def union(lhs: Type, rhs: Type): Type = new Type(
         TypeKind.Union,
+        lhs.resolved && rhs.resolved,
         new Symbol[0],
         new UnionType[] { new UnionType(lhs, rhs)},
         new IntersectionType[0],
@@ -99,6 +111,7 @@ object MakeType {
 
     def intersection(lhs: Type, rhs: Type): Type = new Type(
         TypeKind.Intersection,
+        lhs.resolved && rhs.resolved,
         new Symbol[0],
         new UnionType[0],
         new IntersectionType[] { new IntersectionType(lhs, rhs)},
@@ -109,21 +122,29 @@ object MakeType {
         new ArrayType[0]
     )
 
-    def record(symbol: Symbol, rec: RecordType): Type = new Type(
-        TypeKind.Record,
-        new Symbol[] { symbol },
-        new UnionType[0],
-        new IntersectionType[0],
-        new PrimitiveType[0],
-        new TypeVariable[0],
-        new FunctionType[0],
-        new RecordType[] { rec },
-        new ArrayType[0]
-    )
+    def record(symbol: Symbol, rec: RecordType): Type = {
+        var resolved = true
+        for (x <- 0 to rec.fields.Length) {
+            resolved = resolved && rec.fields[x].type.resolved
+        }
+        new Type(
+            TypeKind.Record,
+            resolved,
+            new Symbol[] { symbol },
+            new UnionType[0],
+            new IntersectionType[0],
+            new PrimitiveType[0],
+            new TypeVariable[0],
+            new FunctionType[0],
+            new RecordType[] { rec },
+            new ArrayType[0]
+        )
+    }
 
-    def array(inner: Type): Type = {
+    def array(inner: Type): Type =
         new Type(
             TypeKind.Array,
+            inner.resolved,
             new Symbol[0],
             new UnionType[0],
             new IntersectionType[0],
@@ -133,10 +154,10 @@ object MakeType {
             new RecordType[0],
             new ArrayType[] { new ArrayType(inner) }
         )
-    }
 
     def unresolved(symbol: Symbol): Type = new Type(
         TypeKind.Unresolved,
+        false,
         new Symbol[] { symbol },
         new UnionType[0],
         new IntersectionType[0],
