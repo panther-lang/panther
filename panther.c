@@ -79,6 +79,7 @@ typedef struct RecordType RecordType;
 typedef struct RecordTypeField RecordTypeField;
 typedef struct SymbolLinks SymbolLinks;
 typedef struct NodeLinks NodeLinks;
+typedef struct TypeLinks TypeLinks;
 typedef struct Checker Checker;
 typedef struct Emitter Emitter;
 typedef struct Compilation Compilation;
@@ -545,7 +546,6 @@ struct Binder {
 
 struct Type {
   int kind;
-  bool resolved;
   array_Symbol symbol;
   array_UnionType union;
   array_IntersectionType intersection;
@@ -554,6 +554,7 @@ struct Type {
   array_FunctionType function;
   array_RecordType record;
   array_ArrayType array;
+  int id;
 };
 
 struct UnionType {
@@ -603,6 +604,11 @@ struct NodeLinks {
   array_Type _type;
 };
 
+struct TypeLinks {
+  bool resolved;
+  bool resolving;
+};
+
 struct Checker {
   Symbol root;
   Type BoolType;
@@ -616,7 +622,8 @@ struct Checker {
   array_SymbolLinks symbol_links;
   int last_node_id;
   array_NodeLinks node_links;
-  int rt;
+  int last_type_id;
+  array_TypeLinks type_links;
 };
 
 struct Emitter {
@@ -642,7 +649,7 @@ struct Compilation {
 /**
  *  DECLARATIONS
  */
-// emitting root with 112 symbols
+// emitting root with 113 symbols
 
 
 /**

@@ -100,6 +100,11 @@ class NodeLinks() {
     }
 }
 
+class TypeLinks() {
+    var resolved: bool = false
+    var resolving: bool = false
+}
+
 class Checker(root: Symbol) {
 
     val BoolType: Type = MakeType.primitive("bool")
@@ -130,6 +135,8 @@ class Checker(root: Symbol) {
     var symbol_links = new SymbolLinks[10]
     var last_node_id = 0
     var node_links = new NodeLinks[10]
+    var last_type_id = 0
+    var type_links = new TypeLinks[10]
 
     def infer_types(root: Symbol): unit = {
 
@@ -177,8 +184,8 @@ class Checker(root: Symbol) {
             // noop
             false
         } else {
+            typ.id = resolved.id
             typ.kind = resolved.kind
-            typ.resolved = resolved.resolved
             typ.union = resolved.union
             typ.intersection = resolved.intersection
             typ.primitive = resolved.primitive
@@ -186,37 +193,43 @@ class Checker(root: Symbol) {
             typ.function = resolved.function
             typ.record = resolved.record
             typ.array = resolved.array
-            typ.resolved
+            val links = get_type_links(typ)
+            links.resolved
         }
     }
 
-    var rt = 0
     def resolve_type(typ: Type): bool = {
-        rt = rt + 1
-        val start = typ.resolved
-        if (rt > 9) {
-            // panic("resolve_type depth exceeded maximum of 3")
-        } else if (typ.resolved || typ.kind == TypeKind.Primitive) {
-        } else if (typ.kind == TypeKind.Record) {
-            typ.resolved = resolve_record_type(typ.record[0])
-        } else if (typ.kind == TypeKind.Array) {
-            typ.resolved = resolve_array_type(typ.array[0])
-        } else if (typ.kind == TypeKind.Function) {
-            typ.resolved = resolve_function_type(typ.function[0])
-        } else if (typ.kind == TypeKind.Unresolved) {
-            typ.resolved = resolve_unresolved_type(typ)
+        val links = get_type_links(typ)
 
-            println("updating type at depth " + string(rt) + " resolved: " + string(typ.resolved))
+        val start = links.resolved
+        val resolved = if (links.resolving || links.resolved || typ.kind == TypeKind.Primitive) {
+            true
         } else {
-            panic("resolve_type of kind " + string(typ.kind))
+            links.resolving = true
+
+            if (typ.kind == TypeKind.Record) {
+                resolve_record_type(typ.record[0])
+            } else if (typ.kind == TypeKind.Array) {
+                resolve_array_type(typ.array[0])
+            } else if (typ.kind == TypeKind.Function) {
+                resolve_function_type(typ.function[0])
+            } else if (typ.kind == TypeKind.Unresolved) {
+                resolve_unresolved_type(typ)
+            } else {
+                panic("resolve_type of kind " + string(typ.kind))
+                false
+            }
         }
-        if (typ.resolved == start) {
+
+
+        if (links.resolved == start) {
 
         } else {
-            println("type resolved: " + string(typ.resolved))
+            println("type resolved: " + string(links.resolved))
         }
-        rt = rt - 1
-        typ.resolved
+        links.resolving = false
+        links.resolved = resolved
+        resolved
     }
 
     def get_type_of_symbol(symbol: Symbol): Type = {
@@ -577,6 +590,31 @@ class Checker(root: Symbol) {
     def get_node_links(node: Node): NodeLinks = {
         val id = get_node_id(node)
         node_links[id]
+    }
+
+
+    def get_type_id(typ: Type): int = {
+        if (typ.id != -1) {
+            typ.id
+        } else {
+            if (last_type_id + 1 >= type_links.Length) {
+                var newItems = new TypeLinks[(last_type_id + 1) * 2]
+                for (i <- 0 to last_type_id) {
+                    newItems[i] = type_links[i]
+                }
+                type_links = newItems
+            } else { }
+
+            type_links[last_type_id] = new TypeLinks()
+            typ.id = last_type_id
+            last_type_id = last_type_id + 1
+            typ.id
+        }
+    }
+
+    def get_type_links(typ: Type): TypeLinks = {
+        val id = get_type_id(typ)
+        type_links[id]
     }
 
     def get_symbol_id(symbol: Symbol): int = {
