@@ -1,6 +1,7 @@
 /**
  *  forward references
  */
+typedef struct IntList IntList;
 typedef struct TextSpan TextSpan;
 typedef struct TextLine TextLine;
 typedef struct TextLineList TextLineList;
@@ -87,6 +88,11 @@ typedef struct Compilation Compilation;
 /**
  *  types
  */
+struct IntList {
+  array_int _items;
+  int _size;
+};
+
 struct TextSpan {
   int start;
   int length;
@@ -624,6 +630,7 @@ struct Checker {
   array_NodeLinks node_links;
   int last_type_id;
   array_TypeLinks type_links;
+  array_Type types;
 };
 
 struct Emitter {
@@ -637,6 +644,7 @@ struct Emitter {
   bool container_has_this;
   Checker checker;
   string nl;
+  array_int array_types;
 };
 
 struct Compilation {
@@ -647,11 +655,11 @@ struct Compilation {
 
 
 /**
- *  DECLARATIONS
+ *  declarations
  */
-// emitting root with 113 symbols
+// emitting root with 114 symbols
 
 
 /**
- *  METHODS
+ *  methods
  */

@@ -137,6 +137,7 @@ class Checker(root: Symbol) {
     var node_links = new NodeLinks[10]
     var last_type_id = 0
     var type_links = new TypeLinks[10]
+    var types = new Type[10]
 
     def infer_types(root: Symbol): unit = {
 
@@ -592,19 +593,33 @@ class Checker(root: Symbol) {
         node_links[id]
     }
 
+    def get_type_by_id(id: int): Type = types[id]
 
+    def grow_types(): unit = {
+        val newTypes = new Type[(last_type_id + 1) * 2]
+        for (i <- 0 to last_type_id) {
+            newTypes[i] = types[i]
+        }
+        types = newTypes
+    }
+
+    def grow_type_links(): unit = {
+        val newItems = new TypeLinks[(last_type_id + 1) * 2]
+        for (i <- 0 to last_type_id) {
+            newItems[i] = type_links[i]
+        }
+        type_links = newItems
+    }
     def get_type_id(typ: Type): int = {
         if (typ.id != -1) {
             typ.id
         } else {
             if (last_type_id + 1 >= type_links.Length) {
-                var newItems = new TypeLinks[(last_type_id + 1) * 2]
-                for (i <- 0 to last_type_id) {
-                    newItems[i] = type_links[i]
-                }
-                type_links = newItems
+                grow_type_links()
+                grow_types()
             } else { }
 
+            types[last_type_id] = typ
             type_links[last_type_id] = new TypeLinks()
             typ.id = last_type_id
             last_type_id = last_type_id + 1

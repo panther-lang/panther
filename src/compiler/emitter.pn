@@ -16,6 +16,7 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
 
     val checker = new Checker(root)
     val nl = "\n"
+    val array_types = new IntList()
 
     def emit(): unit = {
         emit_symbol(root)
@@ -25,9 +26,9 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
             sections[EmitSection.Header] + nl +
             banner_comment("types") +
             sections[EmitSection.Types] + nl +
-            banner_comment("DECLARATIONS") +
+            banner_comment("declarations") +
             sections[EmitSection.Declarations] + nl +
-            banner_comment("METHODS") +
+            banner_comment("methods") +
             sections[EmitSection.Methods]
 
         File.WriteAllText(file, text)
@@ -199,18 +200,28 @@ class Emitter(syntaxTrees: Array<SyntaxTree>, root: Symbol, file: string) {
     def emit(value: string, section: int): unit = sections[section] = sections[section] + indent + value
 
     def emit_type(typ: Type, section: int): unit = {
-        if (typ.kind == TypeKind.Primitive) {
-            emit(typ.primitive[0].name, section)
-        } else if (typ.kind == TypeKind.Record) {
-            emit(typ.symbol[0].name, section)
+        if (typ.id == -1) {
+            emit_panic("emit_type")
         } else if (typ.kind == TypeKind.Array) {
-            emit("array_", section)
-            emit_type(typ.array[0].inner, section)
-        } else if (typ.kind == TypeKind.Unresolved) {
-            // TODO: figure out how to resolve types automatically
-            emit("unresolved", section)
+            array_types.add(typ.id)
+        } else { }
+
+        // we need to track which types are arrays
+        // if we add type ids to an array we can sort/distinct
+        // them prior to emitting them
+        emit(render_type(typ), section)
+    }
+
+    def render_type(typ: Type): string = {
+        if (typ.kind == TypeKind.Primitive) {
+            typ.primitive[0].name
+        } else if (typ.kind == TypeKind.Record) {
+            typ.symbol[0].name
+        } else if (typ.kind == TypeKind.Array) {
+            "array_" + render_type(typ.array[0].inner)
         } else {
-            emit_panic("emit_type: " + string(typ.kind))
+            emit_panic("render_type: " + string(typ.kind))
+            ""
         }
     }
 

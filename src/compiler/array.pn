@@ -1,0 +1,58 @@
+class IntList() {
+    var _items: Array<int> = new int[0]
+    var _size = 0
+
+    def ensure_capacity(count: int): unit = {
+        if (_size + count >= _items.Length) {
+            var newItems = new int[(_size + count) * 2]
+            for (i <- 0 to _size) {
+                newItems[i] = _items[i]
+            }
+            _items = newItems
+        } else { }
+    }
+
+    def add(item: int): unit = {
+        ensure_capacity(1)
+        _items[_size] = item
+        _size = _size + 1
+    }
+
+    def copy(): IntList = {
+        var newItems = new int[_size]
+        for (i <- 0 to _size) {
+            newItems[i] = _items[i]
+        }
+
+        val list = new IntList()
+        list._items = newItems
+        list._size = _size
+    }
+
+    def to_array(): Array<int> =
+        copy()._items
+
+    def sorted(): IntList = {
+        val list = copy()
+
+        for (i <- 0 to list._items.Length)
+        {
+            var min = i
+            for(j <- i + 1 to list._items.Length) {
+                if(list._items[min] > list._items[j])
+                {
+                    min = j
+                } else {}
+            }
+
+            if(min != i)
+            {
+                val lowerValue = list._items[min]
+                list._items[min] = list._items[i]
+                list._items[i] = lowerValue
+            } else {}
+        }
+
+        list
+    }
+}

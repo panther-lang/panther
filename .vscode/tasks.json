@@ -31,6 +31,7 @@
         "./bin/panther.dll",
         "src/compiler/math.pn",
         "src/compiler/hex.pn",
+        "src/compiler/array.pn",
         "src/compiler/text.pn",
         "src/compiler/syntax.pn",
         "src/compiler/scanner.pn",
